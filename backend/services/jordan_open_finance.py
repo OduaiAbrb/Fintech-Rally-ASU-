@@ -22,7 +22,7 @@ class JordanOpenFinanceService:
         self.client_id = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_ID")
         self.client_secret = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_SECRET")
         self.api_key = os.getenv("JORDAN_OPEN_FINANCE_API_KEY")
-        self.x_fapi_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
+        self.x_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
         self.timeout = 30
         
         # Use sandbox mode by default until production credentials are provided
