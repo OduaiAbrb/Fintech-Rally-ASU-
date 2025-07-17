@@ -197,8 +197,9 @@ const SecurityDashboard = () => {
               <div>
                 <h4 className="font-medium text-gray-900">Advanced Features</h4>
                 <p className="text-sm text-gray-600">✅ ML-based fraud detection</p>
-                <p className="text-sm text-gray-600">✅ Biometric authentication</p>
                 <p className="text-sm text-gray-600">✅ Continuous learning models</p>
+                <p className="text-sm text-gray-600">✅ User-to-user transfers</p>
+                <p className="text-sm text-gray-600">🚫 Biometric features disabled</p>
               </div>
             </div>
           </div>
