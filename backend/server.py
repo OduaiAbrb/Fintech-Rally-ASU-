@@ -545,41 +545,28 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         accounts = []
         
         if jof_service.sandbox_mode:
-            for account in accounts_response["Data"]["Account"]:
-                # Get account balances
-                balance_response = await jof_service.get_account_balances(account["AccountId"])
-                balances = balance_response["Data"]["Balance"]
-                
-                # Find closing available balance
-                closing_balance = next(
-                    (b for b in balances if b["Type"] == "ClosingAvailable"), 
-                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
-                )
-                available_balance = next(
-                    (b for b in balances if b["Type"] == "InterimAvailable"), 
-                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
-                )
-                
+            # Use the new response format
+            for account in accounts_response["accounts"]:
                 account_data = {
-                    "account_id": account["AccountId"],
-                    "account_name": account["Nickname"],
-                    "account_number": account["Account"][0]["Identification"],
-                    "bank_name": account["Account"][0]["Name"].split(" - ")[0],
-                    "bank_code": account["Servicer"]["Identification"],
-                    "account_type": account["AccountSubType"].lower().replace("account", ""),
-                    "currency": account["Currency"],
-                    "balance": float(closing_balance["Amount"]["Amount"]),
-                    "available_balance": float(available_balance["Amount"]["Amount"]),
-                    "status": "active",
-                    "last_updated": datetime.utcnow().isoformat()
+                    "account_id": account["accountId"],
+                    "account_name": account["accountName"],
+                    "account_number": account["accountNumber"],
+                    "bank_name": account["bankName"],
+                    "bank_code": account["bankCode"],
+                    "account_type": account["accountType"],
+                    "currency": account["currency"],
+                    "balance": float(account["balance"]["current"]),
+                    "available_balance": float(account["balance"]["available"]),
+                    "status": account["accountStatus"],
+                    "last_updated": account["lastUpdated"]
                 }
                 accounts.append(account_data)
                 
                 # Store/update accounts in database
                 account_doc = {
-                    "_id": account["AccountId"],
+                    "_id": account["accountId"],
                     "user_id": current_user["_id"],
-                    "consent_id": consent["_id"],
+                    "consent_id": consent["_id"] if consent else None,
                     "account_name": account_data["account_name"],
                     "account_number": account_data["account_number"],
                     "bank_name": account_data["bank_name"],
@@ -594,10 +581,14 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 }
                 
                 await linked_accounts_collection.update_one(
-                    {"_id": account["AccountId"]},
+                    {"_id": account["accountId"]},
                     {"$set": account_doc},
                     upsert=True
                 )
+        else:
+            # Handle real API response (when not in sandbox mode)
+            # This would need to be adapted based on actual JoPACC API response structure
+            pass
         
         return {
             "accounts": accounts,
