@@ -373,6 +373,7 @@ async def exchange_currency(
     transaction_id = str(uuid.uuid4())
     transaction_doc = {
         "_id": transaction_id,
+        "transaction_id": transaction_id,
         "user_id": current_user["_id"],
         "transaction_type": "exchange",
         "amount": exchange_request.amount,
@@ -381,11 +382,23 @@ async def exchange_currency(
         "exchange_rate": exchange_rate,
         "status": "completed",
         "description": f"Exchange {exchange_request.amount} {exchange_request.from_currency} to {exchange_request.to_currency}",
+        "timestamp": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "account_id": current_user.get("_id"),
+        "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
     }
     
     await transactions_collection.insert_one(transaction_doc)
+    
+    # Run AML monitoring
+    try:
+        aml_alert = await aml_monitor.monitor_transaction(transaction_doc)
+        if aml_alert:
+            logging.info(f"AML Alert generated for exchange {transaction_id}: {aml_alert.alert_type.value}")
+    except Exception as e:
+        logging.error(f"AML monitoring error for exchange {transaction_id}: {e}")
+        # Don't fail the transaction due to AML monitoring errors
     
     return {
         "message": "Exchange completed successfully",
