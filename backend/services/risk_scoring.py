@@ -878,8 +878,13 @@ class RiskScoringService:
                 decision_reasoning=self._generate_decision_reasoning(credit_score, fraud_score, behavioral_score)
             )
             
+            # Convert enum values for MongoDB storage
+            assessment_dict = asdict(assessment)
+            assessment_dict['risk_category'] = assessment.risk_category.value
+            assessment_dict['risk_level'] = assessment.risk_level.value
+            
             # Store assessment
-            await self.risk_assessments_collection.insert_one(asdict(assessment))
+            await self.risk_assessments_collection.insert_one(assessment_dict)
             
             return assessment
             
