@@ -1087,32 +1087,35 @@ class BackendTester:
                 data = response.json()
                 
                 # Validate response structure
-                required_fields = ["total_assessments", "risk_distribution", "model_performance"]
+                required_fields = ["risk_statistics", "recent_assessments"]
                 missing_fields = [field for field in required_fields if field not in data]
                 
                 if missing_fields:
                     self.print_result(False, f"Missing required fields: {missing_fields}")
                     return False
                 
-                # Validate risk distribution
-                if not isinstance(data["risk_distribution"], dict):
-                    self.print_result(False, "risk_distribution should be a dict")
+                # Validate risk statistics
+                if not isinstance(data["risk_statistics"], dict):
+                    self.print_result(False, "risk_statistics should be a dict")
                     return False
                 
-                # Validate total assessments
-                if not isinstance(data["total_assessments"], int):
-                    self.print_result(False, "total_assessments should be integer")
+                # Validate recent assessments
+                if not isinstance(data["recent_assessments"], list):
+                    self.print_result(False, "recent_assessments should be a list")
                     return False
                 
-                self.print_result(True, f"Risk dashboard retrieved - {data['total_assessments']} total assessments")
+                total_assessments = sum(stats.get("count", 0) for stats in data["risk_statistics"].values())
+                
+                self.print_result(True, f"Risk dashboard retrieved - {total_assessments} total assessments")
                 
                 # Print dashboard summary
                 print(f"\n📈 Risk Dashboard Summary:")
-                print(f"   Total Assessments: {data['total_assessments']}")
-                if data["risk_distribution"]:
+                print(f"   Total Assessments: {total_assessments}")
+                print(f"   Recent Assessments: {len(data['recent_assessments'])}")
+                if data["risk_statistics"]:
                     print(f"   Risk Distribution:")
-                    for level, count in data["risk_distribution"].items():
-                        print(f"     • {level.replace('_', ' ').title()}: {count}")
+                    for level, stats in data["risk_statistics"].items():
+                        print(f"     • {level.replace('_', ' ').title()}: {stats.get('count', 0)}")
                 
                 return True
             else:
