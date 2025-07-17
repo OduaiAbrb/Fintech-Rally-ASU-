@@ -574,7 +574,7 @@ class BackendTester:
                 data = response.json()
                 
                 # Verify transfer response structure
-                required_fields = ["transfer_id", "status", "amount", "currency", "recipient_user"]
+                required_fields = ["transfer_id", "status", "amount", "currency", "recipient"]
                 missing_fields = [field for field in required_fields if field not in data]
                 if missing_fields:
                     self.print_result(False, f"Missing transfer fields: {missing_fields}")
