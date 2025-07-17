@@ -166,7 +166,7 @@ const Dashboard = () => {
               <span className="text-2xl">🤖</span>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Hey Zina (Coming Soon)</h3>
+              <h3 className="font-semibold text-gray-900">Hey Zina</h3>
               <p className="text-sm text-gray-600">AI financial assistant</p>
             </div>
           </div>
