@@ -114,7 +114,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Link
           to="/wallet"
           className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200"
@@ -126,6 +126,21 @@ const Dashboard = () => {
             <div>
               <h3 className="font-semibold text-gray-900">Manage Wallet</h3>
               <p className="text-sm text-gray-600">Add funds, exchange currencies</p>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          to="/open-banking"
+          className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">🏦</span>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Open Banking</h3>
+              <p className="text-sm text-gray-600">Connect bank accounts</p>
             </div>
           </div>
         </Link>
@@ -147,7 +162,7 @@ const Dashboard = () => {
 
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">🤖</span>
             </div>
             <div>

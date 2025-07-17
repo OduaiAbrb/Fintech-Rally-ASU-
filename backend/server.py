@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import uuid
 from bson import ObjectId
 import logging
+from services.jordan_open_finance import JordanOpenFinanceService
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +48,12 @@ users_collection = database.get_collection("users")
 wallets_collection = database.get_collection("wallets")
 transactions_collection = database.get_collection("transactions")
 accounts_collection = database.get_collection("accounts")
+linked_accounts_collection = database.get_collection("linked_accounts")
+consents_collection = database.get_collection("consents")
+payments_collection = database.get_collection("payments")
+
+# Initialize Jordan Open Finance service
+jof_service = JordanOpenFinanceService()
 
 # Pydantic models
 class UserRegistration(BaseModel):
@@ -96,6 +103,29 @@ class ExchangeRequest(BaseModel):
     from_currency: str  # 'JD' or 'STABLECOIN'
     to_currency: str    # 'JD' or 'STABLECOIN'
     amount: float
+
+class ConsentRequest(BaseModel):
+    permissions: List[str]
+
+class PaymentInitiation(BaseModel):
+    recipient_account: str
+    amount: float
+    currency: str = "JOD"
+    reference: Optional[str] = None
+    description: Optional[str] = None
+
+class LinkedAccount(BaseModel):
+    account_id: str
+    account_name: str
+    account_number: str
+    bank_name: str
+    bank_code: str
+    account_type: str
+    currency: str
+    balance: float
+    available_balance: float
+    status: str
+    last_updated: datetime
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -429,6 +459,382 @@ async def deposit_funds(
         "transaction_id": transaction_id,
         "new_balance": new_balance
     }
+
+# Open Banking API Endpoints
+
+@app.post("/api/open-banking/consent")
+async def request_banking_consent(
+    consent_request: ConsentRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Request user consent for accessing banking data"""
+    try:
+        consent_response = await jof_service.request_user_consent(
+            user_id=current_user["_id"],
+            permissions=consent_request.permissions
+        )
+        
+        # Store consent in database
+        consent_doc = {
+            "_id": consent_response["consent_id"],
+            "user_id": current_user["_id"],
+            "permissions": consent_response["permissions"],
+            "status": consent_response["status"],
+            "expires_at": datetime.fromisoformat(consent_response["expires_at"].replace("Z", "+00:00")),
+            "created_at": datetime.utcnow()
+        }
+        
+        await consents_collection.insert_one(consent_doc)
+        
+        return consent_response
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error requesting consent: {str(e)}"
+        )
+
+@app.get("/api/open-banking/accounts")
+async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
+    """Get user's linked bank accounts"""
+    try:
+        # Get user's consent
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if not consent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No banking consent found. Please link your bank accounts first."
+            )
+        
+        # Get accounts from Jordan Open Finance
+        accounts = await jof_service.get_user_accounts(consent["_id"])
+        
+        # Store/update accounts in database
+        for account in accounts:
+            account_doc = {
+                "_id": account["account_id"],
+                "user_id": current_user["_id"],
+                "consent_id": consent["_id"],
+                "account_name": account["account_name"],
+                "account_number": account["account_number"],
+                "bank_name": account["bank_name"],
+                "bank_code": account["bank_code"],
+                "account_type": account["account_type"],
+                "currency": account["currency"],
+                "balance": account["balance"],
+                "available_balance": account["available_balance"],
+                "status": account["status"],
+                "last_updated": datetime.utcnow()
+            }
+            
+            await linked_accounts_collection.update_one(
+                {"_id": account["account_id"]},
+                {"$set": account_doc},
+                upsert=True
+            )
+        
+        return {
+            "accounts": accounts,
+            "total": len(accounts)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching accounts: {str(e)}"
+        )
+
+@app.get("/api/open-banking/accounts/{account_id}/balance")
+async def get_account_balance(
+    account_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get specific account balance"""
+    try:
+        # Get user's consent
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if not consent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No banking consent found"
+            )
+        
+        # Verify account belongs to user
+        linked_account = await linked_accounts_collection.find_one({
+            "_id": account_id,
+            "user_id": current_user["_id"]
+        })
+        if not linked_account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found or not linked to your profile"
+            )
+        
+        balance = await jof_service.get_account_balance(account_id, consent["_id"])
+        
+        # Update stored balance
+        await linked_accounts_collection.update_one(
+            {"_id": account_id},
+            {
+                "$set": {
+                    "balance": balance["balance"],
+                    "available_balance": balance["available_balance"],
+                    "last_updated": datetime.utcnow()
+                }
+            }
+        )
+        
+        return balance
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching balance: {str(e)}"
+        )
+
+@app.get("/api/open-banking/accounts/{account_id}/transactions")
+async def get_account_transactions(
+    account_id: str,
+    limit: int = 50,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get account transaction history"""
+    try:
+        # Get user's consent
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if not consent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No banking consent found"
+            )
+        
+        # Verify account belongs to user
+        linked_account = await linked_accounts_collection.find_one({
+            "_id": account_id,
+            "user_id": current_user["_id"]
+        })
+        if not linked_account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found or not linked to your profile"
+            )
+        
+        # Parse dates if provided
+        from_datetime = None
+        to_datetime = None
+        if from_date:
+            from_datetime = datetime.fromisoformat(from_date)
+        if to_date:
+            to_datetime = datetime.fromisoformat(to_date)
+        
+        transactions = await jof_service.get_account_transactions(
+            account_id, consent["_id"], from_datetime, to_datetime, limit
+        )
+        
+        return {
+            "transactions": transactions,
+            "total": len(transactions),
+            "account_id": account_id,
+            "limit": limit
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching transactions: {str(e)}"
+        )
+
+@app.post("/api/open-banking/payments")
+async def initiate_payment(
+    payment_request: PaymentInitiation,
+    current_user: dict = Depends(get_current_user)
+):
+    """Initiate payment using PIS"""
+    try:
+        # Prepare payment data
+        payment_data = {
+            "amount": payment_request.amount,
+            "currency": payment_request.currency,
+            "recipient": payment_request.recipient_account,
+            "reference": payment_request.reference,
+            "description": payment_request.description,
+            "user_id": current_user["_id"]
+        }
+        
+        # Initiate payment through Jordan Open Finance
+        payment_response = await jof_service.initiate_payment(payment_data)
+        
+        # Store payment record
+        payment_doc = {
+            "_id": payment_response["payment_id"],
+            "user_id": current_user["_id"],
+            "amount": payment_request.amount,
+            "currency": payment_request.currency,
+            "recipient": payment_request.recipient_account,
+            "reference": payment_request.reference,
+            "description": payment_request.description,
+            "status": payment_response["status"],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        await payments_collection.insert_one(payment_doc)
+        
+        return payment_response
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error initiating payment: {str(e)}"
+        )
+
+@app.get("/api/open-banking/payments/{payment_id}")
+async def get_payment_status(
+    payment_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get payment status"""
+    try:
+        # Verify payment belongs to user
+        payment = await payments_collection.find_one({
+            "_id": payment_id,
+            "user_id": current_user["_id"]
+        })
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payment not found"
+            )
+        
+        # Get status from Jordan Open Finance
+        status_response = await jof_service.get_payment_status(payment_id)
+        
+        # Update payment status
+        await payments_collection.update_one(
+            {"_id": payment_id},
+            {
+                "$set": {
+                    "status": status_response["status"],
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return status_response
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching payment status: {str(e)}"
+        )
+
+@app.get("/api/open-banking/fx/rates")
+async def get_exchange_rates(
+    base_currency: str = "JOD",
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current exchange rates"""
+    try:
+        rates = await jof_service.get_exchange_rates(base_currency)
+        return rates
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching exchange rates: {str(e)}"
+        )
+
+@app.post("/api/open-banking/fx/convert")
+async def convert_currency_amount(
+    from_currency: str,
+    to_currency: str,
+    amount: float,
+    current_user: dict = Depends(get_current_user)
+):
+    """Convert currency amount"""
+    try:
+        conversion = await jof_service.convert_currency(from_currency, to_currency, amount)
+        return conversion
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error converting currency: {str(e)}"
+        )
+
+@app.get("/api/open-banking/products")
+async def get_financial_products(current_user: dict = Depends(get_current_user)):
+    """Get available financial products"""
+    try:
+        products = await jof_service.get_financial_products(current_user["_id"])
+        return {
+            "products": products,
+            "total": len(products)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching financial products: {str(e)}"
+        )
+
+@app.get("/api/open-banking/dashboard")
+async def get_open_banking_dashboard(current_user: dict = Depends(get_current_user)):
+    """Get aggregated dashboard data from all linked accounts"""
+    try:
+        # Get user's consent
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if not consent:
+            return {
+                "message": "No banking consent found",
+                "has_linked_accounts": False,
+                "total_balance": 0.0,
+                "accounts": [],
+                "recent_transactions": []
+            }
+        
+        # Get all linked accounts
+        accounts_cursor = linked_accounts_collection.find({"user_id": current_user["_id"]})
+        accounts = []
+        total_balance = 0.0
+        
+        async for account in accounts_cursor:
+            account_data = {
+                "account_id": account["_id"],
+                "account_name": account["account_name"],
+                "bank_name": account["bank_name"],
+                "balance": account["balance"],
+                "available_balance": account["available_balance"],
+                "currency": account["currency"],
+                "account_type": account["account_type"],
+                "last_updated": account["last_updated"]
+            }
+            accounts.append(account_data)
+            total_balance += account["balance"]
+        
+        # Get recent transactions from all accounts
+        recent_transactions = []
+        for account in accounts[:3]:  # Get transactions from first 3 accounts
+            try:
+                transactions = await jof_service.get_account_transactions(
+                    account["account_id"], consent["_id"], limit=5
+                )
+                for tx in transactions:
+                    tx["account_name"] = account["account_name"]
+                    tx["bank_name"] = account["bank_name"]
+                recent_transactions.extend(transactions)
+            except:
+                continue
+        
+        # Sort transactions by date
+        recent_transactions.sort(key=lambda x: x["transaction_date"], reverse=True)
+        recent_transactions = recent_transactions[:10]  # Top 10 recent transactions
+        
+        return {
+            "has_linked_accounts": len(accounts) > 0,
+            "total_balance": total_balance,
+            "accounts": accounts,
+            "recent_transactions": recent_transactions,
+            "total_accounts": len(accounts)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching dashboard data: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
