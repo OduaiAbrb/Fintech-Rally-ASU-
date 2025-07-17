@@ -165,7 +165,7 @@ class JordanOpenFinanceService:
             return response.json()
     
     async def get_account_balances(self, account_id: str, customer_ip: str = "127.0.0.1") -> Dict[str, Any]:
-        """Get account balances using real JoPACC endpoint"""
+        """Get account balances using real JoPACC endpoint with exact API structure"""
         if self.sandbox_mode:
             # Mock balance data based on account_id
             mock_balances = {
@@ -234,11 +234,22 @@ class JordanOpenFinanceService:
                 ]
             })
         
-        headers = await self.get_headers(customer_ip)
+        # Real JoPACC API call with exact headers from your API documentation
+        headers = {
+            "x-customer-ip-address": customer_ip,
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", ""),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123"),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-interactions-id": str(uuid.uuid4())
+        }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Balances/v1.3/accounts/{account_id}/balances",
+                f"https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Balances/v0.4.3/accounts/{account_id}/balances",
                 headers=headers
             )
             response.raise_for_status()
