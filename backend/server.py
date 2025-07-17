@@ -522,7 +522,7 @@ async def request_banking_consent(
 
 @app.get("/api/open-banking/accounts")
 async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
-    """Get user's linked bank accounts"""
+    """Get user's linked bank accounts using JoPACC AIS standards"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -532,32 +532,66 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 detail="No banking consent found. Please link your bank accounts first."
             )
         
-        # Get accounts from Jordan Open Finance
-        accounts = await jof_service.get_user_accounts(consent["_id"])
+        # Get accounts from Jordan Open Finance using JoPACC standards
+        accounts_response = await jof_service.get_accounts(consent["_id"])
         
-        # Store/update accounts in database
-        for account in accounts:
-            account_doc = {
-                "_id": account["account_id"],
-                "user_id": current_user["_id"],
-                "consent_id": consent["_id"],
-                "account_name": account["account_name"],
-                "account_number": account["account_number"],
-                "bank_name": account["bank_name"],
-                "bank_code": account["bank_code"],
-                "account_type": account["account_type"],
-                "currency": account["currency"],
-                "balance": account["balance"],
-                "available_balance": account["available_balance"],
-                "status": account["status"],
-                "last_updated": datetime.utcnow()
-            }
-            
-            await linked_accounts_collection.update_one(
-                {"_id": account["account_id"]},
-                {"$set": account_doc},
-                upsert=True
-            )
+        # Convert JoPACC format to legacy format for frontend compatibility
+        accounts = []
+        
+        if jof_service.sandbox_mode:
+            for account in accounts_response["Data"]["Account"]:
+                # Get account balances
+                balance_response = await jof_service.get_account_balances(account["AccountId"])
+                balances = balance_response["Data"]["Balance"]
+                
+                # Find closing available balance
+                closing_balance = next(
+                    (b for b in balances if b["Type"] == "ClosingAvailable"), 
+                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
+                )
+                available_balance = next(
+                    (b for b in balances if b["Type"] == "InterimAvailable"), 
+                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
+                )
+                
+                account_data = {
+                    "account_id": account["AccountId"],
+                    "account_name": account["Nickname"],
+                    "account_number": account["Account"][0]["Identification"],
+                    "bank_name": account["Account"][0]["Name"].split(" - ")[0],
+                    "bank_code": account["Servicer"]["Identification"],
+                    "account_type": account["AccountSubType"].lower().replace("account", ""),
+                    "currency": account["Currency"],
+                    "balance": float(closing_balance["Amount"]["Amount"]),
+                    "available_balance": float(available_balance["Amount"]["Amount"]),
+                    "status": "active",
+                    "last_updated": datetime.utcnow().isoformat()
+                }
+                accounts.append(account_data)
+                
+                # Store/update accounts in database
+                account_doc = {
+                    "_id": account["AccountId"],
+                    "user_id": current_user["_id"],
+                    "consent_id": consent["_id"],
+                    "account_name": account_data["account_name"],
+                    "account_number": account_data["account_number"],
+                    "bank_name": account_data["bank_name"],
+                    "bank_code": account_data["bank_code"],
+                    "account_type": account_data["account_type"],
+                    "currency": account_data["currency"],
+                    "balance": account_data["balance"],
+                    "available_balance": account_data["available_balance"],
+                    "status": account_data["status"],
+                    "last_updated": datetime.utcnow(),
+                    "jopacc_account_data": account
+                }
+                
+                await linked_accounts_collection.update_one(
+                    {"_id": account["AccountId"]},
+                    {"$set": account_doc},
+                    upsert=True
+                )
         
         return {
             "accounts": accounts,
