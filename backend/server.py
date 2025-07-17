@@ -1569,122 +1569,48 @@ async def get_user_risk_profile(
             detail=f"Error fetching user risk profile: {str(e)}"
         )
 
-# Biometric Authentication API Endpoints
+# Biometric Authentication API Endpoints - DISABLED AS REQUESTED
 
-@app.post("/api/biometric/enroll")
-async def enroll_biometric(
-    biometric_data: dict,
-    current_user: dict = Depends(get_current_user)
-):
-    """Enroll user's biometric data"""
-    try:
-        biometric_type = BiometricType(biometric_data.get("biometric_type"))
-        data = biometric_data.get("data", "")
-        device_fingerprint = biometric_data.get("device_fingerprint", "")
-        
-        result = await biometric_service.enroll_biometric(
-            current_user["_id"],
-            biometric_type,
-            data,
-            device_fingerprint
-        )
-        
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Biometric enrollment error: {str(e)}"
-        )
+# @app.post("/api/biometric/enroll")
+# async def enroll_biometric(
+#     biometric_data: dict,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Enroll user's biometric data - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.post("/api/biometric/authenticate")
-async def authenticate_biometric(
-    biometric_data: dict,
-    request: Request,
-    current_user: dict = Depends(get_current_user)
-):
-    """Authenticate user using biometric data"""
-    try:
-        biometric_type = BiometricType(biometric_data.get("biometric_type"))
-        data = biometric_data.get("data", "")
-        device_fingerprint = biometric_data.get("device_fingerprint", "")
-        
-        # Get IP address and user agent
-        ip_address = request.client.host
-        user_agent = request.headers.get("user-agent", "")
-        
-        result = await biometric_service.authenticate_biometric(
-            current_user["_id"],
-            biometric_type,
-            data,
-            device_fingerprint,
-            ip_address,
-            user_agent
-        )
-        
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Biometric authentication error: {str(e)}"
-        )
+# @app.post("/api/biometric/authenticate")
+# async def authenticate_biometric(
+#     biometric_data: dict,
+#     request: Request,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Authenticate user using biometric data - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.get("/api/biometric/user/{user_id}")
-async def get_user_biometrics(
-    user_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's enrolled biometrics"""
-    try:
-        # Check if user can access this data
-        if current_user["_id"] != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        result = await biometric_service.get_user_biometrics(user_id)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching biometrics: {str(e)}"
-        )
+# @app.get("/api/biometric/user/{user_id}")
+# async def get_user_biometrics(
+#     user_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Get user's enrolled biometrics - DISABLED"""
+#     return {"biometrics": []}
 
-@app.delete("/api/biometric/revoke/{template_id}")
-async def revoke_biometric(
-    template_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Revoke a biometric template"""
-    try:
-        result = await biometric_service.revoke_biometric(
-            current_user["_id"],
-            template_id
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error revoking biometric: {str(e)}"
-        )
+# @app.delete("/api/biometric/revoke/{template_id}")
+# async def revoke_biometric(
+#     template_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Revoke a biometric template - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.get("/api/biometric/history")
-async def get_biometric_history(
-    limit: int = 50,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's biometric authentication history"""
-    try:
-        result = await biometric_service.get_authentication_history(
-            current_user["_id"],
-            limit
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching history: {str(e)}"
-        )
+# @app.get("/api/biometric/history")
+# async def get_biometric_history(
+#     limit: int = 50,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Get user's biometric authentication history - DISABLED"""
+#     return {"history": []}
 
 # Risk Scoring API Endpoints
 
