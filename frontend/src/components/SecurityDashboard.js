@@ -322,7 +322,7 @@ const SecurityDashboard = () => {
               </div>
             )}
 
-            {riskDashboard?.recent_assessments && (
+            {riskDashboard?.recent_assessments && riskDashboard.recent_assessments.length > 0 && (
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Recent Risk Assessments</h4>
                 <div className="space-y-2">
@@ -340,8 +340,8 @@ const SecurityDashboard = () => {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
