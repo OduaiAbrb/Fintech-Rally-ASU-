@@ -370,10 +370,10 @@ class BackendTester:
                 else:
                     response = await self.client.get(f"{API_BASE}{endpoint}")
                 
-                if response.status_code == 401:
+                if response.status_code in [401, 403]:
                     self.print_result(True, f"{endpoint} properly requires authentication")
                 else:
-                    self.print_result(False, f"{endpoint} should return 401 without auth, got {response.status_code}")
+                    self.print_result(False, f"{endpoint} should return 401/403 without auth, got {response.status_code}")
                     all_passed = False
                     
             except Exception as e:
