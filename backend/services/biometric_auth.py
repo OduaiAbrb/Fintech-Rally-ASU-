@@ -596,7 +596,13 @@ class BiometricAuthenticationService:
                         quality_score=result["quality_score"],
                         created_at=datetime.utcnow()
                     )
-                    await self.biometric_templates_collection.insert_one(asdict(template))
+                    
+                    # Convert enum values for MongoDB storage
+                    template_dict = asdict(template)
+                    template_dict['biometric_type'] = template.biometric_type.value
+                    template_dict['provider'] = template.provider.value
+                    
+                    await self.biometric_templates_collection.insert_one(template_dict)
                 
                 return {"success": True, "result": result}
             else:
