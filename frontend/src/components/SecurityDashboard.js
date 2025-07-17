@@ -192,6 +192,7 @@ const SecurityDashboard = () => {
                 <p className="text-sm text-gray-600">✅ AML monitoring active</p>
                 <p className="text-sm text-gray-600">✅ Risk scoring enabled</p>
                 <p className="text-sm text-gray-600">✅ Transaction monitoring</p>
+                <p className="text-sm text-gray-600">🚫 Biometric authentication disabled</p>
               </div>
               <div>
                 <h4 className="font-medium text-gray-900">Advanced Features</h4>
