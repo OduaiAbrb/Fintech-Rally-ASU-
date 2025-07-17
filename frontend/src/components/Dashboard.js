@@ -160,17 +160,20 @@ const Dashboard = () => {
           </div>
         </Link>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        <Link
+          to="/hey-dinar"
+          className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200"
+        >
           <div className="flex items-center space-x-4">
             <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">🤖</span>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Hey Zina</h3>
+              <h3 className="font-semibold text-gray-900">Hey Dinar</h3>
               <p className="text-sm text-gray-600">AI financial assistant</p>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Recent transactions */}
