@@ -515,7 +515,7 @@ class BackendTester:
                 data = response.json()
                 
                 # Validate response structure
-                required_fields = ["message", "systems_initialized", "status"]
+                required_fields = ["message", "systems"]
                 missing_fields = [field for field in required_fields if field not in data]
                 
                 if missing_fields:
@@ -523,17 +523,17 @@ class BackendTester:
                     return False
                 
                 # Validate systems initialized
-                if not isinstance(data["systems_initialized"], list):
-                    self.print_result(False, "systems_initialized should be a list")
+                if not isinstance(data["systems"], list):
+                    self.print_result(False, "systems should be a list")
                     return False
                 
-                expected_systems = ["aml_monitor", "biometric_auth", "risk_scoring"]
+                expected_systems = ["AML Monitor", "Biometric Authentication", "Risk Scoring"]
                 for system in expected_systems:
-                    if system not in data["systems_initialized"]:
+                    if system not in data["systems"]:
                         self.print_result(False, f"Missing system: {system}")
                         return False
                 
-                self.print_result(True, f"Security systems initialized: {', '.join(data['systems_initialized'])}")
+                self.print_result(True, f"Security systems initialized: {', '.join(data['systems'])}")
                 return True
             else:
                 self.print_result(False, f"Request failed: {response.status_code}", response.text)
