@@ -1720,15 +1720,13 @@ async def initialize_security_systems(current_user: dict = Depends(get_current_u
         # Initialize AML system
         await aml_monitor.initialize_system()
         
-        # Initialize biometric system
-        await biometric_service.initialize_biometric_system()
-        
-        # Initialize risk scoring system
-        await risk_service.initialize_risk_system()
+        # Initialize biometric system - DISABLED
+        # await biometric_service.initialize_biometric_system()
         
         return {
-            "message": "All security systems initialized successfully",
-            "systems": ["AML Monitor", "Biometric Authentication", "Risk Scoring"]
+            "message": "Security systems initialized successfully (biometric disabled)",
+            "systems": ["AML Monitor", "Risk Scoring"],
+            "disabled_systems": ["Biometric Authentication"]
         }
     except Exception as e:
         raise HTTPException(
