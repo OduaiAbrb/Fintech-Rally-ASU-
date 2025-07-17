@@ -1711,6 +1711,273 @@ async def get_risk_dashboard(current_user: dict = Depends(get_current_user)):
             detail=f"Error fetching risk dashboard: {str(e)}"
         )
 
+# User-to-User Transfer API Endpoints
+
+@app.post("/api/transfers/user-to-user")
+async def create_user_transfer(
+    transfer_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a transfer between platform users"""
+    try:
+        recipient_identifier = transfer_data.get("recipient_identifier")  # email or phone
+        amount = transfer_data.get("amount", 0)
+        currency = transfer_data.get("currency", "JOD")
+        description = transfer_data.get("description", "")
+        
+        if amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Transfer amount must be greater than 0"
+            )
+        
+        # Find recipient by email or phone
+        recipient = await users_collection.find_one({
+            "$or": [
+                {"email": recipient_identifier},
+                {"phone": recipient_identifier}
+            ]
+        })
+        
+        if not recipient:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recipient not found"
+            )
+        
+        if recipient["_id"] == current_user["_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot transfer to yourself"
+            )
+        
+        # Check sender's balance
+        sender_wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+        if not sender_wallet:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sender wallet not found"
+            )
+        
+        # Check if sender has sufficient balance
+        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("stablecoin_balance", 0)
+        if sender_balance < amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient balance. Available: {sender_balance} {currency}"
+            )
+        
+        # Get or create recipient wallet
+        recipient_wallet = await wallets_collection.find_one({"user_id": recipient["_id"]})
+        if not recipient_wallet:
+            # Create wallet for recipient
+            recipient_wallet = {
+                "_id": str(uuid.uuid4()),
+                "user_id": recipient["_id"],
+                "jd_balance": 0.0,
+                "stablecoin_balance": 0.0,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await wallets_collection.insert_one(recipient_wallet)
+        
+        # Create transfer transaction
+        transfer_id = str(uuid.uuid4())
+        
+        # Update sender balance
+        sender_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        new_sender_balance = sender_balance - amount
+        await wallets_collection.update_one(
+            {"user_id": current_user["_id"]},
+            {"$set": {sender_balance_field: new_sender_balance, "updated_at": datetime.utcnow()}}
+        )
+        
+        # Update recipient balance
+        recipient_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        recipient_current_balance = recipient_wallet.get(recipient_balance_field, 0)
+        new_recipient_balance = recipient_current_balance + amount
+        await wallets_collection.update_one(
+            {"user_id": recipient["_id"]},
+            {"$set": {recipient_balance_field: new_recipient_balance, "updated_at": datetime.utcnow()}}
+        )
+        
+        # Create transaction records for both users
+        sender_transaction = {
+            "_id": f"{transfer_id}_sender",
+            "transaction_id": f"{transfer_id}_sender",
+            "user_id": current_user["_id"],
+            "transaction_type": "transfer_out",
+            "amount": -amount,  # Negative for sender
+            "currency": currency,
+            "status": "completed",
+            "description": f"Transfer to {recipient['full_name']} - {description}",
+            "recipient_id": recipient["_id"],
+            "recipient_name": recipient["full_name"],
+            "timestamp": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "account_id": current_user["_id"],
+            "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
+        }
+        
+        recipient_transaction = {
+            "_id": f"{transfer_id}_recipient",
+            "transaction_id": f"{transfer_id}_recipient",
+            "user_id": recipient["_id"],
+            "transaction_type": "transfer_in",
+            "amount": amount,  # Positive for recipient
+            "currency": currency,
+            "status": "completed",
+            "description": f"Transfer from {current_user['full_name']} - {description}",
+            "sender_id": current_user["_id"],
+            "sender_name": current_user["full_name"],
+            "timestamp": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "account_id": recipient["_id"],
+            "account_age_days": (datetime.utcnow() - recipient.get("created_at", datetime.utcnow())).days
+        }
+        
+        # Insert both transactions
+        await transactions_collection.insert_one(sender_transaction)
+        await transactions_collection.insert_one(recipient_transaction)
+        
+        # Run AML monitoring on both transactions
+        try:
+            sender_aml_alert = await aml_monitor.monitor_transaction(sender_transaction)
+            recipient_aml_alert = await aml_monitor.monitor_transaction(recipient_transaction)
+            
+            if sender_aml_alert:
+                logging.info(f"AML Alert for sender transfer {transfer_id}: {sender_aml_alert.alert_type.value}")
+            if recipient_aml_alert:
+                logging.info(f"AML Alert for recipient transfer {transfer_id}: {recipient_aml_alert.alert_type.value}")
+        except Exception as e:
+            logging.error(f"AML monitoring error for transfer {transfer_id}: {e}")
+        
+        return {
+            "transfer_id": transfer_id,
+            "status": "completed",
+            "sender": {
+                "name": current_user["full_name"],
+                "new_balance": new_sender_balance
+            },
+            "recipient": {
+                "name": recipient["full_name"],
+                "identifier": recipient_identifier
+            },
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "timestamp": datetime.utcnow().isoformat(),
+            "transaction_ids": {
+                "sender": f"{transfer_id}_sender",
+                "recipient": f"{transfer_id}_recipient"
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Transfer failed: {str(e)}"
+        )
+
+@app.get("/api/transfers/history")
+async def get_transfer_history(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's transfer history"""
+    try:
+        # Get transfers both sent and received
+        cursor = transactions_collection.find({
+            "user_id": current_user["_id"],
+            "transaction_type": {"$in": ["transfer_out", "transfer_in"]}
+        }).sort("timestamp", -1).limit(limit)
+        
+        transfers = []
+        async for transaction in cursor:
+            transfer_data = {
+                "transaction_id": transaction["transaction_id"],
+                "type": transaction["transaction_type"],
+                "amount": transaction["amount"],
+                "currency": transaction["currency"],
+                "status": transaction["status"],
+                "description": transaction["description"],
+                "timestamp": transaction["timestamp"],
+                "created_at": transaction["created_at"]
+            }
+            
+            # Add counterparty information
+            if transaction["transaction_type"] == "transfer_out":
+                transfer_data["counterparty"] = {
+                    "id": transaction.get("recipient_id"),
+                    "name": transaction.get("recipient_name"),
+                    "type": "recipient"
+                }
+            else:  # transfer_in
+                transfer_data["counterparty"] = {
+                    "id": transaction.get("sender_id"),
+                    "name": transaction.get("sender_name"),
+                    "type": "sender"
+                }
+            
+            transfers.append(transfer_data)
+        
+        return {
+            "transfers": transfers,
+            "total": len(transfers)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching transfer history: {str(e)}"
+        )
+
+@app.get("/api/users/search")
+async def search_users(
+    query: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Search for users by email or phone for transfers"""
+    try:
+        if len(query) < 3:
+            return {"users": []}
+        
+        # Search by email or phone (partial match)
+        cursor = users_collection.find({
+            "$and": [
+                {"_id": {"$ne": current_user["_id"]}},  # Exclude current user
+                {
+                    "$or": [
+                        {"email": {"$regex": query, "$options": "i"}},
+                        {"phone": {"$regex": query, "$options": "i"}},
+                        {"full_name": {"$regex": query, "$options": "i"}}
+                    ]
+                }
+            ]
+        }).limit(10)
+        
+        users = []
+        async for user in cursor:
+            users.append({
+                "id": user["_id"],
+                "full_name": user["full_name"],
+                "email": user["email"],
+                "phone": user.get("phone", ""),
+                "created_at": user["created_at"]
+            })
+        
+        return {"users": users}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error searching users: {str(e)}"
+        )
+
 # Security System Initialization
 
 @app.post("/api/security/initialize")
