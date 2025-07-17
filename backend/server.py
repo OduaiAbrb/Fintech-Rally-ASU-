@@ -15,6 +15,8 @@ import logging
 from services.jordan_open_finance import JordanOpenFinanceService
 from services.hey_dinar_ai import HeyDinarAI
 from services.aml_monitor import AMLMonitor
+from services.biometric_auth import BiometricAuthenticationService, BiometricType
+from services.risk_scoring import RiskScoringService
 
 # Load environment variables
 load_dotenv()
