@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 import WalletPage from './components/WalletPage';
 import TransactionsPage from './components/TransactionsPage';
 import OpenBankingPage from './components/OpenBankingPage';
+import HeyDinarPage from './components/HeyDinarPage';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -85,6 +86,16 @@ function App() {
                   <Navbar />
                   <main className="flex-1 overflow-auto">
                     <OpenBankingPage />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/hey-dinar" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <HeyDinarPage />
                   </main>
                 </div>
               </ProtectedRoute>

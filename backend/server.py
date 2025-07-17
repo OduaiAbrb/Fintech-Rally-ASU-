@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -13,6 +13,7 @@ import uuid
 from bson import ObjectId
 import logging
 from services.jordan_open_finance import JordanOpenFinanceService
+from services.hey_dinar_ai import HeyDinarAI
 
 # Load environment variables
 load_dotenv()
@@ -51,9 +52,11 @@ accounts_collection = database.get_collection("accounts")
 linked_accounts_collection = database.get_collection("linked_accounts")
 consents_collection = database.get_collection("consents")
 payments_collection = database.get_collection("payments")
+chat_conversations_collection = database.get_collection("chat_conversations")
 
-# Initialize Jordan Open Finance service
+# Initialize services
 jof_service = JordanOpenFinanceService()
+hey_dinar_ai = HeyDinarAI()
 
 # Pydantic models
 class UserRegistration(BaseModel):
@@ -126,6 +129,18 @@ class LinkedAccount(BaseModel):
     available_balance: float
     status: str
     last_updated: datetime
+
+class ChatMessageRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    message_id: str
+    user_message: str
+    ai_response: str
+    intent: str
+    confidence: float
+    timestamp: datetime
+    quick_actions: List[Dict[str, str]]
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -467,26 +482,38 @@ async def request_banking_consent(
     consent_request: ConsentRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Request user consent for accessing banking data"""
+    """Request user consent for accessing banking data using JoPACC standards"""
     try:
-        consent_response = await jof_service.request_user_consent(
-            user_id=current_user["_id"],
-            permissions=consent_request.permissions
+        # Create account access consent using JoPACC AIS standards
+        consent_response = await jof_service.create_account_access_consent(
+            permissions=consent_request.permissions,
+            user_id=current_user["_id"]
         )
         
         # Store consent in database
+        consent_id = consent_response["Data"]["ConsentId"]
         consent_doc = {
-            "_id": consent_response["consent_id"],
+            "_id": consent_id,
             "user_id": current_user["_id"],
-            "permissions": consent_response["permissions"],
-            "status": consent_response["status"],
-            "expires_at": datetime.fromisoformat(consent_response["expires_at"].replace("Z", "+00:00")),
-            "created_at": datetime.utcnow()
+            "permissions": consent_request.permissions,
+            "status": consent_response["Data"]["Status"],
+            "expires_at": datetime.fromisoformat(consent_response["Data"]["ExpirationDateTime"].replace("Z", "+00:00")),
+            "created_at": datetime.fromisoformat(consent_response["Data"]["CreationDateTime"].replace("Z", "+00:00")),
+            "jopacc_consent_data": consent_response
         }
         
         await consents_collection.insert_one(consent_doc)
         
-        return consent_response
+        # Return in legacy format for frontend compatibility
+        return {
+            "consent_id": consent_id,
+            "user_id": current_user["_id"],
+            "permissions": consent_request.permissions,
+            "status": "granted",
+            "consent_url": f"https://sandbox.jopacc.com/consent/{consent_id}",
+            "expires_at": consent_response["Data"]["ExpirationDateTime"],
+            "created_at": consent_response["Data"]["CreationDateTime"]
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -495,7 +522,7 @@ async def request_banking_consent(
 
 @app.get("/api/open-banking/accounts")
 async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
-    """Get user's linked bank accounts"""
+    """Get user's linked bank accounts using JoPACC AIS standards"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -505,32 +532,66 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 detail="No banking consent found. Please link your bank accounts first."
             )
         
-        # Get accounts from Jordan Open Finance
-        accounts = await jof_service.get_user_accounts(consent["_id"])
+        # Get accounts from Jordan Open Finance using JoPACC standards
+        accounts_response = await jof_service.get_accounts(consent["_id"])
         
-        # Store/update accounts in database
-        for account in accounts:
-            account_doc = {
-                "_id": account["account_id"],
-                "user_id": current_user["_id"],
-                "consent_id": consent["_id"],
-                "account_name": account["account_name"],
-                "account_number": account["account_number"],
-                "bank_name": account["bank_name"],
-                "bank_code": account["bank_code"],
-                "account_type": account["account_type"],
-                "currency": account["currency"],
-                "balance": account["balance"],
-                "available_balance": account["available_balance"],
-                "status": account["status"],
-                "last_updated": datetime.utcnow()
-            }
-            
-            await linked_accounts_collection.update_one(
-                {"_id": account["account_id"]},
-                {"$set": account_doc},
-                upsert=True
-            )
+        # Convert JoPACC format to legacy format for frontend compatibility
+        accounts = []
+        
+        if jof_service.sandbox_mode:
+            for account in accounts_response["Data"]["Account"]:
+                # Get account balances
+                balance_response = await jof_service.get_account_balances(account["AccountId"])
+                balances = balance_response["Data"]["Balance"]
+                
+                # Find closing available balance
+                closing_balance = next(
+                    (b for b in balances if b["Type"] == "ClosingAvailable"), 
+                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
+                )
+                available_balance = next(
+                    (b for b in balances if b["Type"] == "InterimAvailable"), 
+                    {"Amount": {"Amount": "0.00", "Currency": "JOD"}}
+                )
+                
+                account_data = {
+                    "account_id": account["AccountId"],
+                    "account_name": account["Nickname"],
+                    "account_number": account["Account"][0]["Identification"],
+                    "bank_name": account["Account"][0]["Name"].split(" - ")[0],
+                    "bank_code": account["Servicer"]["Identification"],
+                    "account_type": account["AccountSubType"].lower().replace("account", ""),
+                    "currency": account["Currency"],
+                    "balance": float(closing_balance["Amount"]["Amount"]),
+                    "available_balance": float(available_balance["Amount"]["Amount"]),
+                    "status": "active",
+                    "last_updated": datetime.utcnow().isoformat()
+                }
+                accounts.append(account_data)
+                
+                # Store/update accounts in database
+                account_doc = {
+                    "_id": account["AccountId"],
+                    "user_id": current_user["_id"],
+                    "consent_id": consent["_id"],
+                    "account_name": account_data["account_name"],
+                    "account_number": account_data["account_number"],
+                    "bank_name": account_data["bank_name"],
+                    "bank_code": account_data["bank_code"],
+                    "account_type": account_data["account_type"],
+                    "currency": account_data["currency"],
+                    "balance": account_data["balance"],
+                    "available_balance": account_data["available_balance"],
+                    "status": account_data["status"],
+                    "last_updated": datetime.utcnow(),
+                    "jopacc_account_data": account
+                }
+                
+                await linked_accounts_collection.update_one(
+                    {"_id": account["AccountId"]},
+                    {"$set": account_doc},
+                    upsert=True
+                )
         
         return {
             "accounts": accounts,
@@ -834,6 +895,169 @@ async def get_open_banking_dashboard(current_user: dict = Depends(get_current_us
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching dashboard data: {str(e)}"
+        )
+
+# Hey Dinar AI Chat Endpoints
+
+@app.post("/api/hey-dinar/chat")
+async def chat_with_hey_dinar(
+    chat_request: ChatMessageRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Chat with Hey Dinar AI assistant"""
+    try:
+        # Gather context data for AI processing
+        context_data = {}
+        
+        # Get wallet balance
+        wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+        if wallet:
+            context_data["wallet_balance"] = {
+                "jd_balance": wallet.get("jd_balance", 0),
+                "stablecoin_balance": wallet.get("stablecoin_balance", 0)
+            }
+        
+        # Get open banking data
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if consent:
+            try:
+                # Get accounts and transactions
+                accounts = await jof_service.get_user_accounts(consent["_id"])
+                recent_transactions = []
+                
+                total_balance = 0
+                for account in accounts:
+                    total_balance += account.get("balance", 0)
+                    try:
+                        transactions = await jof_service.get_account_transactions(
+                            account["account_id"], consent["_id"], limit=10
+                        )
+                        for tx in transactions:
+                            tx["account_name"] = account["account_name"]
+                            tx["bank_name"] = account["bank_name"]
+                        recent_transactions.extend(transactions)
+                    except:
+                        continue
+                
+                # Sort transactions by date
+                recent_transactions.sort(key=lambda x: x["transaction_date"], reverse=True)
+                
+                context_data["open_banking_data"] = {
+                    "has_linked_accounts": len(accounts) > 0,
+                    "total_balance": total_balance,
+                    "accounts": accounts,
+                    "recent_transactions": recent_transactions[:20],  # Top 20 recent transactions
+                    "total_accounts": len(accounts)
+                }
+            except:
+                context_data["open_banking_data"] = {"has_linked_accounts": False}
+        
+        # Get exchange rates
+        try:
+            exchange_rates = await jof_service.get_exchange_rates()
+            context_data["exchange_rates"] = exchange_rates
+        except:
+            context_data["exchange_rates"] = {}
+        
+        # Process message with AI
+        chat_message = await hey_dinar_ai.process_message(
+            user_id=current_user["_id"],
+            message=chat_request.message,
+            context_data=context_data
+        )
+        
+        # Store chat message in database
+        chat_doc = {
+            "_id": chat_message.id,
+            "user_id": chat_message.user_id,
+            "message": chat_message.message,
+            "response": chat_message.response,
+            "intent": chat_message.intent,
+            "confidence": chat_message.confidence,
+            "timestamp": chat_message.timestamp,
+            "context_data": chat_message.context_data
+        }
+        
+        await chat_conversations_collection.insert_one(chat_doc)
+        
+        # Get quick actions
+        quick_actions = hey_dinar_ai.get_quick_actions()
+        
+        return ChatResponse(
+            message_id=chat_message.id,
+            user_message=chat_message.message,
+            ai_response=chat_message.response,
+            intent=chat_message.intent,
+            confidence=chat_message.confidence,
+            timestamp=chat_message.timestamp,
+            quick_actions=quick_actions
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing chat message: {str(e)}"
+        )
+
+@app.get("/api/hey-dinar/conversation")
+async def get_chat_history(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get chat conversation history"""
+    try:
+        cursor = chat_conversations_collection.find({"user_id": current_user["_id"]})
+        cursor = cursor.sort("timestamp", -1).skip(offset).limit(limit)
+        
+        conversations = []
+        async for chat in cursor:
+            conversations.append({
+                "id": chat["_id"],
+                "message": chat["message"],
+                "response": chat["response"],
+                "intent": chat["intent"],
+                "confidence": chat["confidence"],
+                "timestamp": chat["timestamp"]
+            })
+        
+        return {
+            "conversations": list(reversed(conversations)),  # Reverse to show oldest first
+            "total": len(conversations),
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching chat history: {str(e)}"
+        )
+
+@app.get("/api/hey-dinar/quick-actions")
+async def get_quick_actions(current_user: dict = Depends(get_current_user)):
+    """Get quick action buttons for the chat interface"""
+    try:
+        quick_actions = hey_dinar_ai.get_quick_actions()
+        return {"quick_actions": quick_actions}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching quick actions: {str(e)}"
+        )
+
+@app.delete("/api/hey-dinar/conversation")
+async def clear_chat_history(current_user: dict = Depends(get_current_user)):
+    """Clear chat conversation history"""
+    try:
+        result = await chat_conversations_collection.delete_many({"user_id": current_user["_id"]})
+        return {
+            "message": "Chat history cleared successfully",
+            "deleted_count": result.deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error clearing chat history: {str(e)}"
         )
 
 if __name__ == "__main__":
