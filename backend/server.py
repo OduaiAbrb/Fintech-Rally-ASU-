@@ -1855,7 +1855,7 @@ async def enhanced_login(
     try:
         # First, perform standard authentication
         user = await users_collection.find_one({"email": login_data.email})
-        if not user or not pwd_context.verify(login_data.password, user["password"]):
+        if not user or not pwd_context.verify(login_data.password, user["hashed_password"]):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
