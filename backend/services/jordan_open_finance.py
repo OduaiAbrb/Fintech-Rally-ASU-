@@ -721,9 +721,44 @@ class JordanOpenFinanceService:
                     # If real API succeeds, process the response
                     fx_data = response.json()
                     
-                    # Convert to our expected format if needed
-                    # (This depends on the actual API response format)
-                    return fx_data
+                    # Convert JoPACC FX API response to our expected format
+                    if "data" in fx_data and fx_data["data"]:
+                        # Find the target currency in the response
+                        for fx_rate in fx_data["data"]:
+                            if fx_rate.get("targetCurrency") == target_currency:
+                                rate = fx_rate.get("conversionValue", 1.0)
+                                converted_amount = amount * rate if amount else None
+                                
+                                return {
+                                    "quoteId": str(uuid.uuid4()),
+                                    "baseCurrency": fx_rate.get("sourceCurrency", "JOD"),
+                                    "targetCurrency": target_currency,
+                                    "rate": rate,
+                                    "amount": amount,
+                                    "convertedAmount": converted_amount,
+                                    "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
+                                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                                }
+                        
+                        # If target currency not found, use first available rate as fallback
+                        if fx_data["data"]:
+                            first_rate = fx_data["data"][0]
+                            rate = first_rate.get("conversionValue", 1.0)
+                            converted_amount = amount * rate if amount else None
+                            
+                            return {
+                                "quoteId": str(uuid.uuid4()),
+                                "baseCurrency": first_rate.get("sourceCurrency", "JOD"),
+                                "targetCurrency": first_rate.get("targetCurrency", target_currency),
+                                "rate": rate,
+                                "amount": amount,
+                                "convertedAmount": converted_amount,
+                                "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
+                                "timestamp": datetime.utcnow().isoformat() + "Z"
+                            }
+                    
+                    # If no data in response, fall back to mock data
+                    print("JoPACC FX API returned no data, falling back to mock data")
                 else:
                     # If real API fails, log the error and return mock data
                     print(f"JoPACC FX API Error: {response.status_code} - {response.text}")
