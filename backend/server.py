@@ -620,9 +620,8 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
         
-        if jof_service.sandbox_mode:
-            # Use the new response format
-            for account in accounts_response["accounts"]:
+        # Process accounts from either real API or fallback mock data
+        for account in accounts_response.get("accounts", []):
                 account_data = {
                     "account_id": account["accountId"],
                     "account_name": account["accountName"],
