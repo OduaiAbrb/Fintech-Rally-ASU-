@@ -443,6 +443,125 @@ class JordanOpenFinanceService:
             response.raise_for_status()
             return response.json()
     
+    async def get_fx_rates(self) -> Dict[str, Any]:
+        """Get FX rates using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            return {
+                "baseCurrency": "JOD",
+                "rates": [
+                    {
+                        "targetCurrency": "USD",
+                        "rate": 1.41,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "EUR",
+                        "rate": 1.29,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "GBP",
+                        "rate": 1.13,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "SAR",
+                        "rate": 5.28,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    }
+                ],
+                "lastUpdated": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
+        """Get FX quote using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            rates = {
+                "USD": 1.41,
+                "EUR": 1.29,
+                "GBP": 1.13,
+                "SAR": 5.28,
+                "STABLECOIN": 1.0  # 1:1 for our stablecoin
+            }
+            
+            rate = rates.get(target_currency, 1.0)
+            converted_amount = amount * rate if amount else None
+            
+            return {
+                "quoteId": str(uuid.uuid4()),
+                "baseCurrency": "JOD",
+                "targetCurrency": target_currency,
+                "rate": rate,
+                "amount": amount,
+                "convertedAmount": converted_amount,
+                "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        params = {}
+        if amount:
+            params["amount"] = amount
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs/{target_currency}",
+                headers=headers,
+                params=params
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
+                            currency: str = "JOD", description: str = None) -> Dict[str, Any]:
+        """Create transfer between accounts or to wallet"""
+        if self.sandbox_mode:
+            transfer_id = f"txn_{str(uuid.uuid4())[:8]}"
+            return {
+                "transferId": transfer_id,
+                "status": "completed",
+                "fromAccount": from_account_id,
+                "toAccount": to_account_id,
+                "amount": amount,
+                "currency": currency,
+                "description": description or f"Transfer {amount} {currency}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "estimatedCompletion": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        transfer_data = {
+            "fromAccount": from_account_id,
+            "toAccount": to_account_id,
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "transferType": "internal"
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.api_base}/gateway/Payments/v1.3/transfers",
+                headers=headers,
+                json=transfer_data
+            )
+            response.raise_for_status()
+            return response.json()
+    
     # Legacy methods for backward compatibility
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
