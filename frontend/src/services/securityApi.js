@@ -31,15 +31,19 @@ const securityApi = {
   authenticateBiometric: (biometricData) => 
     api.post('/biometric/authenticate', biometricData),
     
-  getUserBiometrics: (userId = null) => {
-    if (userId) {
-      return api.get(`/biometric/user/${userId}`);
-    }
-    // Get current user's ID from token and use it
-    return api.get('/user/profile').then(response => {
-      const currentUserId = response.data.user_id;
+  getUserBiometrics: async (userId = null) => {
+    try {
+      if (userId) {
+        return api.get(`/biometric/user/${userId}`);
+      }
+      // Get current user's ID from token and use it
+      const profileResponse = await api.get('/user/profile');
+      const currentUserId = profileResponse.data.user_id;
       return api.get(`/biometric/user/${currentUserId}`);
-    });
+    } catch (error) {
+      // If profile call fails, return empty biometrics
+      return { data: { biometrics: [] } };
+    }
   },
     
   revokeBiometric: (templateId) => 
