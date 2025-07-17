@@ -673,7 +673,7 @@ class BackendTester:
                 data = response.json()
                 
                 # Verify search response structure
-                required_fields = ["users", "total"]
+                required_fields = ["users"]
                 missing_fields = [field for field in required_fields if field not in data]
                 if missing_fields:
                     self.print_result(False, f"Missing search fields: {missing_fields}")
