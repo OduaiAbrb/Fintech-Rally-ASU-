@@ -691,9 +691,9 @@ class BackendTester:
                         self.print_result(False, f"User entry missing fields: {missing_user_fields}")
                         return False
                 
-                self.print_result(True, f"User search working - {data['total']} users found")
+                self.print_result(True, f"User search working - {len(data['users'])} users found")
                 print(f"   🔍 Search Query: 'fatima'")
-                print(f"   👥 Users Found: {data['total']}")
+                print(f"   👥 Users Found: {len(data['users'])}")
                 
                 if data["users"]:
                     print(f"   📋 Search Results:")
