@@ -133,14 +133,20 @@ class LinkedAccount(BaseModel):
 class ChatMessageRequest(BaseModel):
     message: str
 
-class ChatResponse(BaseModel):
-    message_id: str
-    user_message: str
-    ai_response: str
-    intent: str
-    confidence: float
-    timestamp: datetime
-    quick_actions: List[Dict[str, str]]
+class TransferRequest(BaseModel):
+    from_account_id: str
+    to_account_id: str
+    amount: float
+    currency: str = "JOD"
+    description: Optional[str] = None
+
+class UserProfileResponse(BaseModel):
+    user_info: dict
+    wallet_balance: dict
+    linked_accounts: List[dict]
+    total_balance: float
+    fx_rates: dict
+    recent_transfers: List[dict]
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
