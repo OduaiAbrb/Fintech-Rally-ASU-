@@ -549,8 +549,19 @@ async def connect_accounts(current_user: dict = Depends(get_current_user)):
             upsert=True
         )
         
-        # Get and return the connected accounts
-        return await get_linked_accounts(current_user)
+        # Get and return the connected accounts in dashboard format
+        accounts_response = await get_linked_accounts(current_user)
+        
+        # Convert to dashboard format
+        dashboard_data = {
+            "has_linked_accounts": True,
+            "total_balance": sum(acc["balance"] for acc in accounts_response["accounts"]),
+            "accounts": accounts_response["accounts"],
+            "recent_transactions": [],  # Will be populated by real API
+            "total_accounts": len(accounts_response["accounts"])
+        }
+        
+        return dashboard_data
         
     except Exception as e:
         raise HTTPException(
