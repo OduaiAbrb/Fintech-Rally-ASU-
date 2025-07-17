@@ -38,7 +38,7 @@ const securityApi = {
       }
       // Get current user's ID from token and use it
       const profileResponse = await api.get('/user/profile');
-      const currentUserId = profileResponse.data.user_id;
+      const currentUserId = profileResponse.data.user_info.id;
       return api.get(`/biometric/user/${currentUserId}`);
     } catch (error) {
       // If profile call fails, return empty biometrics
