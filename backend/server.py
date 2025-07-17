@@ -482,26 +482,38 @@ async def request_banking_consent(
     consent_request: ConsentRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Request user consent for accessing banking data"""
+    """Request user consent for accessing banking data using JoPACC standards"""
     try:
-        consent_response = await jof_service.request_user_consent(
-            user_id=current_user["_id"],
-            permissions=consent_request.permissions
+        # Create account access consent using JoPACC AIS standards
+        consent_response = await jof_service.create_account_access_consent(
+            permissions=consent_request.permissions,
+            user_id=current_user["_id"]
         )
         
         # Store consent in database
+        consent_id = consent_response["Data"]["ConsentId"]
         consent_doc = {
-            "_id": consent_response["consent_id"],
+            "_id": consent_id,
             "user_id": current_user["_id"],
-            "permissions": consent_response["permissions"],
-            "status": consent_response["status"],
-            "expires_at": datetime.fromisoformat(consent_response["expires_at"].replace("Z", "+00:00")),
-            "created_at": datetime.utcnow()
+            "permissions": consent_request.permissions,
+            "status": consent_response["Data"]["Status"],
+            "expires_at": datetime.fromisoformat(consent_response["Data"]["ExpirationDateTime"].replace("Z", "+00:00")),
+            "created_at": datetime.fromisoformat(consent_response["Data"]["CreationDateTime"].replace("Z", "+00:00")),
+            "jopacc_consent_data": consent_response
         }
         
         await consents_collection.insert_one(consent_doc)
         
-        return consent_response
+        # Return in legacy format for frontend compatibility
+        return {
+            "consent_id": consent_id,
+            "user_id": current_user["_id"],
+            "permissions": consent_request.permissions,
+            "status": "granted",
+            "consent_url": f"https://sandbox.jopacc.com/consent/{consent_id}",
+            "expires_at": consent_response["Data"]["ExpirationDateTime"],
+            "created_at": consent_response["Data"]["CreationDateTime"]
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
