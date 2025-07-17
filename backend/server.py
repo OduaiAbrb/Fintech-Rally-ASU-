@@ -1410,6 +1410,173 @@ async def get_fx_quote(
             detail=f"Error fetching FX quote: {str(e)}"
         )
 
+# AML Monitoring API Endpoints
+
+@app.get("/api/aml/dashboard")
+async def get_aml_dashboard(current_user: dict = Depends(get_current_user)):
+    """Get AML monitoring dashboard data"""
+    try:
+        # Check if user has admin privileges (in real implementation)
+        # For now, allow all authenticated users to access
+        dashboard_data = await aml_monitor.get_aml_dashboard()
+        return dashboard_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching AML dashboard: {str(e)}"
+        )
+
+@app.get("/api/aml/alerts")
+async def get_aml_alerts(
+    risk_level: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get AML alerts with optional filtering"""
+    try:
+        query = {}
+        if risk_level:
+            query["risk_level"] = risk_level
+        if status:
+            query["status"] = status
+        
+        cursor = aml_monitor.alerts_collection.find(query).sort("timestamp", -1).limit(limit)
+        alerts = []
+        
+        async for alert in cursor:
+            alerts.append({
+                "alert_id": alert["alert_id"],
+                "transaction_id": alert["transaction_id"],
+                "user_id": alert["user_id"],
+                "alert_type": alert["alert_type"],
+                "risk_level": alert["risk_level"],
+                "score": alert["score"],
+                "description": alert["description"],
+                "timestamp": alert["timestamp"],
+                "status": alert["status"],
+                "cbj_reported": alert.get("cbj_reported", False)
+            })
+        
+        return {"alerts": alerts, "total": len(alerts)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching AML alerts: {str(e)}"
+        )
+
+@app.post("/api/aml/alerts/{alert_id}/resolve")
+async def resolve_aml_alert(
+    alert_id: str,
+    resolution_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Resolve an AML alert with analyst feedback"""
+    try:
+        is_false_positive = resolution_data.get("is_false_positive", False)
+        resolution = resolution_data.get("resolution", "")
+        analyst_id = current_user["_id"]
+        
+        await aml_monitor.process_alert_feedback(
+            alert_id, is_false_positive, resolution, analyst_id
+        )
+        
+        return {"message": "Alert resolved successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error resolving alert: {str(e)}"
+        )
+
+@app.get("/api/aml/user-risk/{user_id}")
+async def get_user_risk_profile(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's risk profile and transaction patterns"""
+    try:
+        # Get user's recent transactions
+        cursor = transactions_collection.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)],
+            limit=100
+        )
+        
+        transactions = []
+        async for tx in cursor:
+            transactions.append({
+                "transaction_id": tx.get("transaction_id", tx["_id"]),
+                "amount": tx["amount"],
+                "transaction_type": tx["transaction_type"],
+                "timestamp": tx.get("timestamp", tx["created_at"].isoformat()),
+                "currency": tx.get("currency", "JOD")
+            })
+        
+        # Get user's alerts
+        alert_cursor = aml_monitor.alerts_collection.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)],
+            limit=20
+        )
+        
+        alerts = []
+        async for alert in alert_cursor:
+            alerts.append({
+                "alert_id": alert["alert_id"],
+                "alert_type": alert["alert_type"],
+                "risk_level": alert["risk_level"],
+                "score": alert["score"],
+                "timestamp": alert["timestamp"],
+                "status": alert["status"]
+            })
+        
+        # Calculate risk metrics
+        if transactions:
+            amounts = [tx["amount"] for tx in transactions]
+            risk_metrics = {
+                "total_transactions": len(transactions),
+                "total_amount": sum(amounts),
+                "avg_amount": sum(amounts) / len(amounts),
+                "max_amount": max(amounts),
+                "total_alerts": len(alerts),
+                "high_risk_alerts": len([a for a in alerts if a["risk_level"] == "high"]),
+                "critical_alerts": len([a for a in alerts if a["risk_level"] == "critical"])
+            }
+        else:
+            risk_metrics = {
+                "total_transactions": 0,
+                "total_amount": 0,
+                "avg_amount": 0,
+                "max_amount": 0,
+                "total_alerts": 0,
+                "high_risk_alerts": 0,
+                "critical_alerts": 0
+            }
+        
+        return {
+            "user_id": user_id,
+            "risk_metrics": risk_metrics,
+            "recent_transactions": transactions[:10],
+            "recent_alerts": alerts[:10]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user risk profile: {str(e)}"
+        )
+
+@app.post("/api/aml/initialize")
+async def initialize_aml_system(current_user: dict = Depends(get_current_user)):
+    """Initialize AML monitoring system"""
+    try:
+        await aml_monitor.initialize_system()
+        return {"message": "AML system initialized successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error initializing AML system: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
