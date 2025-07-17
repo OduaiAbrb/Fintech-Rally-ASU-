@@ -111,8 +111,8 @@ const SecurityDashboard = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">👆</span>
+              <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-2xl">🚫</span>
               </div>
             </div>
             <div className="ml-4">
@@ -121,7 +121,7 @@ const SecurityDashboard = () => {
                 Status: {securityStatus?.biometric_system?.status || 'Unknown'}
               </p>
               <p className="text-xs text-gray-500">
-                Templates: {securityStatus?.biometric_system?.total_templates || 0}
+                {securityStatus?.biometric_system?.message || 'Disabled'}
               </p>
             </div>
           </div>
