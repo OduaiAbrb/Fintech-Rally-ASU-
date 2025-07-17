@@ -109,7 +109,13 @@ class JordanOpenFinanceService:
                 
                 if response.status_code == 200:
                     # If real API succeeds, return the actual data
-                    return response.json()
+                    api_data = response.json()
+                    print(f"JoPACC API Success: {api_data}")
+                    # Check if the API returned empty data
+                    if api_data.get("accounts") and len(api_data["accounts"]) > 0:
+                        return api_data
+                    else:
+                        print("JoPACC API returned empty accounts, falling back to mock data")
                 else:
                     # If real API fails, log the error and return mock data in the expected format
                     print(f"JoPACC API Error: {response.status_code} - {response.text}")
