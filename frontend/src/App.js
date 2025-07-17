@@ -10,6 +10,7 @@ import TransactionsPage from './components/TransactionsPage';
 import OpenBankingPage from './components/OpenBankingPage';
 import HeyDinarPage from './components/HeyDinarPage';
 import UserProfilePage from './components/UserProfilePage';
+import TransferPage from './components/TransferPage';
 import SecurityDashboard from './components/SecurityDashboard';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
