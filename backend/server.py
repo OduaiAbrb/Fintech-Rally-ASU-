@@ -61,6 +61,8 @@ chat_conversations_collection = database.get_collection("chat_conversations")
 jof_service = JordanOpenFinanceService()
 hey_dinar_ai = HeyDinarAI()
 aml_monitor = AMLMonitor(MONGO_URL)
+biometric_service = BiometricAuthenticationService(MONGO_URL)
+risk_service = RiskScoringService(MONGO_URL)
 
 # Pydantic models
 class UserRegistration(BaseModel):
