@@ -1868,7 +1868,7 @@ async def enhanced_login(
         biometrics = await biometric_service.get_user_biometrics(user["_id"])
         
         # Generate token
-        access_token = create_access_token(data={"sub": user["email"]})
+        access_token = create_access_token(data={"sub": user["_id"]})
         
         # Determine if additional verification is needed
         requires_additional_verification = (
