@@ -1743,8 +1743,8 @@ async def get_security_status(current_user: dict = Depends(get_current_user)):
         # Check AML system
         aml_dashboard = await aml_monitor.get_aml_dashboard()
         
-        # Check biometric system
-        biometric_stats = await biometric_service.biometric_templates_collection.count_documents({})
+        # Check biometric system - DISABLED
+        biometric_stats = 0  # Disabled
         
         # Check risk system
         risk_assessments = await risk_service.risk_assessments_collection.count_documents({})
