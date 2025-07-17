@@ -851,6 +851,169 @@ async def get_open_banking_dashboard(current_user: dict = Depends(get_current_us
             detail=f"Error fetching dashboard data: {str(e)}"
         )
 
+# Hey Dinar AI Chat Endpoints
+
+@app.post("/api/hey-dinar/chat")
+async def chat_with_hey_dinar(
+    chat_request: ChatMessageRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Chat with Hey Dinar AI assistant"""
+    try:
+        # Gather context data for AI processing
+        context_data = {}
+        
+        # Get wallet balance
+        wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+        if wallet:
+            context_data["wallet_balance"] = {
+                "jd_balance": wallet.get("jd_balance", 0),
+                "stablecoin_balance": wallet.get("stablecoin_balance", 0)
+            }
+        
+        # Get open banking data
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if consent:
+            try:
+                # Get accounts and transactions
+                accounts = await jof_service.get_user_accounts(consent["_id"])
+                recent_transactions = []
+                
+                total_balance = 0
+                for account in accounts:
+                    total_balance += account.get("balance", 0)
+                    try:
+                        transactions = await jof_service.get_account_transactions(
+                            account["account_id"], consent["_id"], limit=10
+                        )
+                        for tx in transactions:
+                            tx["account_name"] = account["account_name"]
+                            tx["bank_name"] = account["bank_name"]
+                        recent_transactions.extend(transactions)
+                    except:
+                        continue
+                
+                # Sort transactions by date
+                recent_transactions.sort(key=lambda x: x["transaction_date"], reverse=True)
+                
+                context_data["open_banking_data"] = {
+                    "has_linked_accounts": len(accounts) > 0,
+                    "total_balance": total_balance,
+                    "accounts": accounts,
+                    "recent_transactions": recent_transactions[:20],  # Top 20 recent transactions
+                    "total_accounts": len(accounts)
+                }
+            except:
+                context_data["open_banking_data"] = {"has_linked_accounts": False}
+        
+        # Get exchange rates
+        try:
+            exchange_rates = await jof_service.get_exchange_rates()
+            context_data["exchange_rates"] = exchange_rates
+        except:
+            context_data["exchange_rates"] = {}
+        
+        # Process message with AI
+        chat_message = await hey_dinar_ai.process_message(
+            user_id=current_user["_id"],
+            message=chat_request.message,
+            context_data=context_data
+        )
+        
+        # Store chat message in database
+        chat_doc = {
+            "_id": chat_message.id,
+            "user_id": chat_message.user_id,
+            "message": chat_message.message,
+            "response": chat_message.response,
+            "intent": chat_message.intent,
+            "confidence": chat_message.confidence,
+            "timestamp": chat_message.timestamp,
+            "context_data": chat_message.context_data
+        }
+        
+        await chat_conversations_collection.insert_one(chat_doc)
+        
+        # Get quick actions
+        quick_actions = hey_dinar_ai.get_quick_actions()
+        
+        return ChatResponse(
+            message_id=chat_message.id,
+            user_message=chat_message.message,
+            ai_response=chat_message.response,
+            intent=chat_message.intent,
+            confidence=chat_message.confidence,
+            timestamp=chat_message.timestamp,
+            quick_actions=quick_actions
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing chat message: {str(e)}"
+        )
+
+@app.get("/api/hey-dinar/conversation")
+async def get_chat_history(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get chat conversation history"""
+    try:
+        cursor = chat_conversations_collection.find({"user_id": current_user["_id"]})
+        cursor = cursor.sort("timestamp", -1).skip(offset).limit(limit)
+        
+        conversations = []
+        async for chat in cursor:
+            conversations.append({
+                "id": chat["_id"],
+                "message": chat["message"],
+                "response": chat["response"],
+                "intent": chat["intent"],
+                "confidence": chat["confidence"],
+                "timestamp": chat["timestamp"]
+            })
+        
+        return {
+            "conversations": list(reversed(conversations)),  # Reverse to show oldest first
+            "total": len(conversations),
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching chat history: {str(e)}"
+        )
+
+@app.get("/api/hey-dinar/quick-actions")
+async def get_quick_actions(current_user: dict = Depends(get_current_user)):
+    """Get quick action buttons for the chat interface"""
+    try:
+        quick_actions = hey_dinar_ai.get_quick_actions()
+        return {"quick_actions": quick_actions}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching quick actions: {str(e)}"
+        )
+
+@app.delete("/api/hey-dinar/conversation")
+async def clear_chat_history(current_user: dict = Depends(get_current_user)):
+    """Clear chat conversation history"""
+    try:
+        result = await chat_conversations_collection.delete_many({"user_id": current_user["_id"]})
+        return {
+            "message": "Chat history cleared successfully",
+            "deleted_count": result.deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error clearing chat history: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
