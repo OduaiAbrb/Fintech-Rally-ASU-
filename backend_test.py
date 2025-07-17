@@ -595,7 +595,7 @@ class BackendTester:
                 
                 self.print_result(True, f"User-to-user transfer successful - {data['amount']} {data['currency']}")
                 print(f"   💸 Transfer ID: {data['transfer_id']}")
-                print(f"   👤 Recipient: {data['recipient_user']['full_name']}")
+                print(f"   👤 Recipient: {data['recipient']['name']}")
                 print(f"   📊 Status: {data['status']}")
                 print(f"   💰 Amount: {data['amount']} {data['currency']}")
                 
