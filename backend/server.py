@@ -539,7 +539,7 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
             )
         
         # Get accounts from Jordan Open Finance using JoPACC standards
-        accounts_response = await jof_service.get_accounts(consent["_id"])
+        accounts_response = await jof_service.get_accounts_new()
         
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
