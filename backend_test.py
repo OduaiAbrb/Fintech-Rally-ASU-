@@ -25,6 +25,7 @@ class BackendTester:
         self.client = httpx.AsyncClient(timeout=30.0)
         self.access_token = None
         self.user_data = None
+        self.biometric_template_id = None
         
     async def cleanup(self):
         """Clean up HTTP client"""
