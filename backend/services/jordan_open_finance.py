@@ -25,7 +25,7 @@ class JordanOpenFinanceService:
         self.x_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
         self.timeout = 30
         
- main
+    
         # Always use real API endpoints - no sandbox mode
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
         self.sandbox_mode = False  # Always use real API calls
