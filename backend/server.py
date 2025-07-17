@@ -130,6 +130,18 @@ class LinkedAccount(BaseModel):
     status: str
     last_updated: datetime
 
+class ChatMessageRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    message_id: str
+    user_message: str
+    ai_response: str
+    intent: str
+    confidence: float
+    timestamp: datetime
+    quick_actions: List[Dict[str, str]]
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
