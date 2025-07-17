@@ -728,29 +728,25 @@ class JordanOpenFinanceService:
     # Legacy methods for backward compatibility
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
-        accounts_response = await self.get_accounts(user_consent_id)
+        accounts_response = await self.get_accounts()
         
-        if self.sandbox_mode:
-            # Convert new format to legacy format
-            accounts = []
-            for account in accounts_response["Data"]["Account"]:
-                accounts.append({
-                    "account_id": account["AccountId"],
-                    "account_name": account["Nickname"],
-                    "account_number": account["Account"][0]["Identification"],
-                    "bank_name": account["Account"][0]["Name"].split(" - ")[0],
-                    "bank_code": account["Servicer"]["Identification"],
-                    "account_type": account["AccountSubType"].lower(),
-                    "currency": account["Currency"],
-                    "balance": 2500.75 if "001" in account["AccountId"] else 15000.00 if "002" in account["AccountId"] else 8750.50,
-                    "available_balance": 2400.75 if "001" in account["AccountId"] else 15000.00 if "002" in account["AccountId"] else 8500.50,
-                    "status": "active",
-                    "last_updated": datetime.utcnow().isoformat()
-                })
-            return accounts
-        
-        # Production conversion would be more complex
-        return []
+        # Convert new format to legacy format
+        accounts = []
+        for account in accounts_response["accounts"]:
+            accounts.append({
+                "account_id": account["accountId"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": account["balance"]["current"],
+                "available_balance": account["balance"]["available"],
+                "status": "active",
+                "last_updated": account["lastUpdated"]
+            })
+        return accounts
     
     async def request_user_consent(self, user_id: str, permissions: List[str]) -> Dict[str, Any]:
         """Legacy method - creates account access consent"""
