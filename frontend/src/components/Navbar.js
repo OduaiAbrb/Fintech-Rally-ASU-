@@ -16,6 +16,7 @@ const Navbar = () => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: '📊' },
     { name: 'Wallet', path: '/wallet', icon: '💳' },
+    { name: 'Open Banking', path: '/open-banking', icon: '🏦' },
     { name: 'Transactions', path: '/transactions', icon: '📈' },
   ];
 
