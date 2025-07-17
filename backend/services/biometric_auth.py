@@ -661,7 +661,13 @@ class BiometricAuthenticationService:
                 failure_reason=details.get("error") if auth_result != AuthenticationResult.SUCCESS else None
             )
             
-            await self.biometric_attempts_collection.insert_one(asdict(attempt))
+            # Convert enum values for MongoDB storage
+            attempt_dict = asdict(attempt)
+            attempt_dict['biometric_type'] = attempt.biometric_type.value
+            attempt_dict['provider'] = attempt.provider.value
+            attempt_dict['result'] = attempt.result.value
+            
+            await self.biometric_attempts_collection.insert_one(attempt_dict)
             
             # Update template usage
             if auth_result == AuthenticationResult.SUCCESS:
