@@ -465,17 +465,31 @@ async def deposit_funds(
     transaction_id = str(uuid.uuid4())
     transaction_doc = {
         "_id": transaction_id,
+        "transaction_id": transaction_id,
         "user_id": current_user["_id"],
         "transaction_type": "deposit",
         "amount": transaction_request.amount,
         "currency": transaction_request.currency,
         "status": "completed",
         "description": transaction_request.description or f"Deposit {transaction_request.amount} {transaction_request.currency}",
+        "timestamp": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "account_id": current_user.get("_id"),
+        "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
     }
     
     await transactions_collection.insert_one(transaction_doc)
+    
+    # Run AML monitoring
+    try:
+        aml_alert = await aml_monitor.monitor_transaction(transaction_doc)
+        if aml_alert:
+            # Log alert for monitoring
+            logging.info(f"AML Alert generated for transaction {transaction_id}: {aml_alert.alert_type.value}")
+    except Exception as e:
+        logging.error(f"AML monitoring error for transaction {transaction_id}: {e}")
+        # Don't fail the transaction due to AML monitoring errors
     
     return {
         "message": "Deposit completed successfully",
