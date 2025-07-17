@@ -983,15 +983,15 @@ async def chat_with_hey_dinar(
         # Get quick actions
         quick_actions = hey_dinar_ai.get_quick_actions()
         
-        return ChatResponse(
-            message_id=chat_message.id,
-            user_message=chat_message.message,
-            ai_response=chat_message.response,
-            intent=chat_message.intent,
-            confidence=chat_message.confidence,
-            timestamp=chat_message.timestamp,
-            quick_actions=quick_actions
-        )
+        return {
+            "message_id": chat_message.id,
+            "user_message": chat_message.message,
+            "ai_response": chat_message.response,
+            "intent": chat_message.intent,
+            "confidence": chat_message.confidence,
+            "timestamp": chat_message.timestamp,
+            "quick_actions": quick_actions
+        }
         
     except Exception as e:
         raise HTTPException(
