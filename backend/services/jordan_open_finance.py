@@ -764,6 +764,40 @@ class JordanOpenFinanceService:
             }
         
         return consent_response
+    
+    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
+        """Legacy method for exchange rates"""
+        fx_data = await self.get_fx_rates()
+        
+        if self.sandbox_mode:
+            rates = {}
+            for rate_info in fx_data["rates"]:
+                rates[rate_info["targetCurrency"]] = rate_info["rate"]
+            
+            return {
+                "base_currency": fx_data["baseCurrency"],
+                "rates": rates,
+                "last_updated": fx_data["lastUpdated"]
+            }
+        
+        return fx_data
+    
+    async def convert_currency(self, from_currency: str, to_currency: str, amount: float) -> Dict[str, Any]:
+        """Legacy method for currency conversion"""
+        if from_currency != "JOD":
+            # For now, we only support JOD as base currency
+            raise ValueError("Only JOD base currency is supported")
+        
+        quote = await self.get_fx_quote(to_currency, amount)
+        
+        return {
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "original_amount": amount,
+            "converted_amount": quote.get("convertedAmount", amount),
+            "exchange_rate": quote.get("rate", 1.0),
+            "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
+        }
         
     async def get_access_token(self) -> str:
         """Get OAuth2 access token for API authentication"""
