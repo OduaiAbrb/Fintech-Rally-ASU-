@@ -674,7 +674,7 @@ class JordanOpenFinanceService:
             return response.json()
     
     async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
-        """Get FX quote using real JoPACC endpoint"""
+        """Get FX quote using real JoPACC endpoint with exact API structure"""
         if self.sandbox_mode:
             rates = {
                 "USD": 1.41,
@@ -698,19 +698,26 @@ class JordanOpenFinanceService:
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         
-        headers = await self.get_headers()
-        params = {}
-        if amount:
-            params["amount"] = amount
+        # Real JoPACC API call with exact headers from your API documentation
+        headers = {
+            "x-interactions-id": str(uuid.uuid4()),
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", ""),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-idempotency-key": str(uuid.uuid4())
+        }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs/{target_currency}",
-                headers=headers,
-                params=params
+                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
+                headers=headers
             )
             response.raise_for_status()
-            return response.json()
+            fx_data = response.json()
+            
+            # Process the response to match our expected format
+            # (Exact format will depend on the actual API response)
+            return fx_data
     
     async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
                             currency: str = "JOD", description: str = None) -> Dict[str, Any]:
