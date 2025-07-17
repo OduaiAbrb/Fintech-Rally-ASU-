@@ -14,6 +14,7 @@ from bson import ObjectId
 import logging
 from services.jordan_open_finance import JordanOpenFinanceService
 from services.hey_dinar_ai import HeyDinarAI
+from services.aml_monitor import AMLMonitor
 
 # Load environment variables
 load_dotenv()
