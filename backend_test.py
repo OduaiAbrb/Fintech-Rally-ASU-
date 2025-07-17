@@ -634,7 +634,7 @@ class BackendTester:
                 
                 # Verify transfer entries structure
                 for transfer in data["transfers"]:
-                    required_transfer_fields = ["transfer_id", "amount", "currency", "status", "created_at"]
+                    required_transfer_fields = ["transaction_id", "amount", "currency", "status", "created_at"]
                     missing_transfer_fields = [field for field in required_transfer_fields if field not in transfer]
                     if missing_transfer_fields:
                         self.print_result(False, f"Transfer entry missing fields: {missing_transfer_fields}")
