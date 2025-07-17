@@ -69,6 +69,169 @@ class JordanOpenFinanceService:
             "Accept": "application/json"
         }
     
+    # Real API Endpoints based on the portal documentation
+    
+    async def get_accounts(self, skip: int = 0, account_type: str = None, limit: int = 10, 
+                          account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
+        """Get user accounts using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            # Mock data that follows the real API structure
+            return {
+                "accounts": [
+                    {
+                        "accountId": "acc_001_jordan_bank",
+                        "accountType": "current",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Jordan Bank Current Account",
+                        "accountNumber": "1234567890",
+                        "bankName": "Jordan Bank",
+                        "bankCode": "JBANKJOA",
+                        "balance": {
+                            "available": 2500.75,
+                            "current": 2600.75,
+                            "limit": 5000.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "accountId": "acc_002_arab_bank",
+                        "accountType": "savings",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Arab Bank Savings Account",
+                        "accountNumber": "9876543210",
+                        "bankName": "Arab Bank",
+                        "bankCode": "ARABJOAM",
+                        "balance": {
+                            "available": 15000.00,
+                            "current": 15000.00,
+                            "limit": 0.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "accountId": "acc_003_housing_bank",
+                        "accountType": "business",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Housing Bank Business Account",
+                        "accountNumber": "5555666677",
+                        "bankName": "Housing Bank",
+                        "bankCode": "HBANKJOA",
+                        "balance": {
+                            "available": 8750.50,
+                            "current": 8850.50,
+                            "limit": 10000.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    }
+                ],
+                "totalCount": 3,
+                "hasMore": False
+            }
+        
+        headers = await self.get_headers()
+        params = {
+            "skip": skip,
+            "limit": limit,
+            "sort": sort
+        }
+        
+        if account_type:
+            params["accountType"] = account_type
+        if account_status:
+            params["accountStatus"] = account_status
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Accounts/v1.3/accounts",
+                headers=headers,
+                params=params
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def get_account_balances(self, account_id: str, customer_ip: str = "127.0.0.1") -> Dict[str, Any]:
+        """Get account balances using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            # Mock balance data based on account_id
+            mock_balances = {
+                "acc_001_jordan_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 2500.75,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 2600.75,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                },
+                "acc_002_arab_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 15000.00,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 15000.00,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                },
+                "acc_003_housing_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 8750.50,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 8850.50,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                }
+            }
+            
+            return mock_balances.get(account_id, {
+                "accountId": account_id,
+                "balances": [
+                    {
+                        "type": "available",
+                        "amount": 0.00,
+                        "currency": "JOD",
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    }
+                ]
+            })
+        
+        headers = await self.get_headers(customer_ip)
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Balances/v1.3/accounts/{account_id}/balances",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+    
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
     async def create_account_access_consent(self, permissions: List[str], user_id: str) -> Dict[str, Any]:
         """Create account access consent following JoPACC AIS standards"""
