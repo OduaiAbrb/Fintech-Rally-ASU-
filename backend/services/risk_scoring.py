@@ -190,7 +190,7 @@ class CreditScoringModel:
                 'scaler': self.scaler,
                 'feature_columns': self.feature_columns
             }
-            joblib.save(model_data, self.model_path)
+            joblib.dump(model_data, self.model_path)
             logger.info("Credit scoring model saved successfully")
         except Exception as e:
             logger.error(f"Could not save credit model: {e}")
