@@ -526,6 +526,38 @@ async def request_banking_consent(
             detail=f"Error requesting consent: {str(e)}"
         )
 
+@app.post("/api/open-banking/connect-accounts")
+async def connect_accounts(current_user: dict = Depends(get_current_user)):
+    """Connect user accounts without requiring full consent process"""
+    try:
+        # For demo purposes, we'll simulate account connection
+        # In production, this would trigger the full JoPACC consent flow
+        
+        # Create or update a demo consent record
+        consent_doc = {
+            "user_id": current_user["_id"],
+            "consent_id": f"demo_consent_{str(uuid.uuid4())[:8]}",
+            "permissions": ["accounts", "balances", "transactions"],
+            "status": "granted",
+            "created_at": datetime.utcnow(),
+            "expires_at": datetime.utcnow() + timedelta(days=90)
+        }
+        
+        await consents_collection.update_one(
+            {"user_id": current_user["_id"]},
+            {"$set": consent_doc},
+            upsert=True
+        )
+        
+        # Get and return the connected accounts
+        return await get_linked_accounts(current_user)
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error connecting accounts: {str(e)}"
+        )
+
 @app.get("/api/open-banking/accounts")
 async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
     """Get user's linked bank accounts using JoPACC AIS standards"""
