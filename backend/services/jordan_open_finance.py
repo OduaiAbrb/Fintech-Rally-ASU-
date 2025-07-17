@@ -73,7 +73,7 @@ class JordanOpenFinanceService:
     
     async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
                           account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
-        """Get user accounts using real JoPACC endpoint with proper headers"""
+        """Get user accounts using real JoPACC endpoint with exact API structure"""
         if self.sandbox_mode:
             # Mock data that follows the real API structure
             return {
@@ -131,37 +131,35 @@ class JordanOpenFinanceService:
                 "hasMore": False
             }
         
-        # Real JoPACC API call with proper headers
+        # Real JoPACC API call with exact headers from your API documentation
         headers = {
-            'x-jws-signature': "",  # Would need proper JWS signature in production
-            'x-auth-date': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'x-idempotency-key': str(uuid.uuid4()),
-            'Authorization': f"Bearer {await self.get_access_token()}",
-            'x-customer-user-agent': "StableCoin-Fintech-App/1.0",
-            'x-financial-id': self.x_financial_id,
-            'x-customer-ip-address': "127.0.0.1",
-            'x-interactions-id': str(uuid.uuid4()),
-            'x-customer-id': "customer_123",  # Should be the actual customer ID
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", ""),
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
+            "x-customer-ip-address": "127.0.0.1",
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123")
         }
         
-        params = {
+        querystring = {
             "skip": skip,
             "limit": limit,
             "sort": sort
         }
         
         if account_type:
-            params["accountType"] = account_type
+            querystring["accountType"] = account_type
         if account_status:
-            params["accountStatus"] = account_status
+            querystring["accountStatus"] = account_status
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Accounts/v0.4.3/accounts",
+                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Accounts/v0.4.3/accounts",
                 headers=headers,
-                params=params
+                params=querystring
             )
             response.raise_for_status()
             return response.json()
