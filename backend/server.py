@@ -13,6 +13,7 @@ import uuid
 from bson import ObjectId
 import logging
 from services.jordan_open_finance import JordanOpenFinanceService
+from services.hey_dinar_ai import HeyDinarAI
 
 # Load environment variables
 load_dotenv()
