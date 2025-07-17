@@ -1886,11 +1886,11 @@ async def enhanced_login(
             },
             "risk_assessment": {
                 "risk_level": risk_assessment.risk_level.value,
-                "risk_score": risk_assessment.risk_score,
-                "requires_additional_verification": requires_additional_verification
+                "risk_score": float(risk_assessment.risk_score),
+                "requires_additional_verification": bool(requires_additional_verification)
             },
-            "biometric_options": [b["biometric_type"] for b in biometrics.get("biometrics", [])],
-            "security_recommendations": risk_assessment.recommendations
+            "biometric_options": [str(b["biometric_type"]) for b in biometrics.get("biometrics", [])],
+            "security_recommendations": [str(rec) for rec in risk_assessment.recommendations] if risk_assessment.recommendations else []
         }
     except Exception as e:
         raise HTTPException(
