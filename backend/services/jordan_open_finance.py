@@ -18,7 +18,7 @@ class JordanOpenFinanceService:
     def __init__(self):
         # Production JoPACC API Configuration
         self.base_url = os.getenv("JORDAN_OPEN_FINANCE_BASE_URL", "https://api.jopacc.com")
-        self.sandbox_url = os.getenv("JORDAN_OPEN_FINANCE_SANDBOX_URL", "https://jpcjofsdev.devportal-az-eu.webmethods.io")
+        self.sandbox_url = os.getenv("JORDAN_OPEN_FINANCE_SANDBOX_URL", "https://jpcjofsdev-apigw-az-eu.webmethods.io")
         self.client_id = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_ID")
         self.client_secret = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_SECRET")
         self.api_key = os.getenv("JORDAN_OPEN_FINANCE_API_KEY")
