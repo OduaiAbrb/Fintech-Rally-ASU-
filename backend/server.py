@@ -1756,8 +1756,9 @@ async def get_security_status(current_user: dict = Depends(get_current_user)):
                 "model_version": aml_dashboard.get("model_version", "1.0")
             },
             "biometric_system": {
-                "status": "active",
-                "total_templates": biometric_stats
+                "status": "disabled",
+                "total_templates": 0,
+                "message": "Biometric authentication is currently disabled"
             },
             "risk_system": {
                 "status": "active",
