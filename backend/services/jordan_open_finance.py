@@ -25,9 +25,9 @@ class JordanOpenFinanceService:
         self.x_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
         self.timeout = 30
         
-        # Use sandbox mode by default until production credentials are provided
-        self.sandbox_mode = os.getenv("JORDAN_OPEN_FINANCE_SANDBOX", "true").lower() == "true"
-        self.api_base = self.sandbox_url if self.sandbox_mode else self.base_url
+        # Always use real API endpoints - no sandbox mode
+        self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
+        self.sandbox_mode = False  # Always use real API calls
         
     async def get_access_token(self) -> str:
         """Get OAuth2 access token for API authentication following JoPACC standards"""
