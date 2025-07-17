@@ -163,7 +163,6 @@ const SecurityDashboard = () => {
           {[
             { id: 'overview', name: 'Overview', icon: '📋' },
             { id: 'aml', name: 'AML Monitoring', icon: '🛡️' },
-            { id: 'biometric', name: 'Biometric Auth', icon: '👆' },
             { id: 'risk', name: 'Risk Scoring', icon: '📊' }
           ].map((tab) => (
             <button
