@@ -20,6 +20,7 @@ const Navbar = () => {
     { name: 'Open Banking', path: '/open-banking', icon: '🏦' },
     { name: 'Hey Dinar', path: '/hey-dinar', icon: '🤖' },
     { name: 'Transactions', path: '/transactions', icon: '📈' },
+    { name: 'Security', path: '/security', icon: '🔒' },
   ];
 
   const isActive = (path) => location.pathname === path;

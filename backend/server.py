@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,6 +14,9 @@ from bson import ObjectId
 import logging
 from services.jordan_open_finance import JordanOpenFinanceService
 from services.hey_dinar_ai import HeyDinarAI
+from services.aml_monitor import AMLMonitor
+from services.biometric_auth import BiometricAuthenticationService, BiometricType
+from services.risk_scoring import RiskScoringService
 
 # Load environment variables
 load_dotenv()
@@ -57,6 +60,9 @@ chat_conversations_collection = database.get_collection("chat_conversations")
 # Initialize services
 jof_service = JordanOpenFinanceService()
 hey_dinar_ai = HeyDinarAI()
+aml_monitor = AMLMonitor(MONGO_URL)
+biometric_service = BiometricAuthenticationService(MONGO_URL)
+risk_service = RiskScoringService(MONGO_URL)
 
 # Pydantic models
 class UserRegistration(BaseModel):
@@ -371,6 +377,7 @@ async def exchange_currency(
     transaction_id = str(uuid.uuid4())
     transaction_doc = {
         "_id": transaction_id,
+        "transaction_id": transaction_id,
         "user_id": current_user["_id"],
         "transaction_type": "exchange",
         "amount": exchange_request.amount,
@@ -379,11 +386,23 @@ async def exchange_currency(
         "exchange_rate": exchange_rate,
         "status": "completed",
         "description": f"Exchange {exchange_request.amount} {exchange_request.from_currency} to {exchange_request.to_currency}",
+        "timestamp": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "account_id": current_user.get("_id"),
+        "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
     }
     
     await transactions_collection.insert_one(transaction_doc)
+    
+    # Run AML monitoring
+    try:
+        aml_alert = await aml_monitor.monitor_transaction(transaction_doc)
+        if aml_alert:
+            logging.info(f"AML Alert generated for exchange {transaction_id}: {aml_alert.alert_type.value}")
+    except Exception as e:
+        logging.error(f"AML monitoring error for exchange {transaction_id}: {e}")
+        # Don't fail the transaction due to AML monitoring errors
     
     return {
         "message": "Exchange completed successfully",
@@ -463,17 +482,31 @@ async def deposit_funds(
     transaction_id = str(uuid.uuid4())
     transaction_doc = {
         "_id": transaction_id,
+        "transaction_id": transaction_id,
         "user_id": current_user["_id"],
         "transaction_type": "deposit",
         "amount": transaction_request.amount,
         "currency": transaction_request.currency,
         "status": "completed",
         "description": transaction_request.description or f"Deposit {transaction_request.amount} {transaction_request.currency}",
+        "timestamp": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "account_id": current_user.get("_id"),
+        "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
     }
     
     await transactions_collection.insert_one(transaction_doc)
+    
+    # Run AML monitoring
+    try:
+        aml_alert = await aml_monitor.monitor_transaction(transaction_doc)
+        if aml_alert:
+            # Log alert for monitoring
+            logging.info(f"AML Alert generated for transaction {transaction_id}: {aml_alert.alert_type.value}")
+    except Exception as e:
+        logging.error(f"AML monitoring error for transaction {transaction_id}: {e}")
+        # Don't fail the transaction due to AML monitoring errors
     
     return {
         "message": "Deposit completed successfully",
@@ -1379,6 +1412,502 @@ async def get_fx_quote(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching FX quote: {str(e)}"
+        )
+
+# AML Monitoring API Endpoints
+
+@app.get("/api/aml/dashboard")
+async def get_aml_dashboard(current_user: dict = Depends(get_current_user)):
+    """Get AML monitoring dashboard data"""
+    try:
+        # Check if user has admin privileges (in real implementation)
+        # For now, allow all authenticated users to access
+        dashboard_data = await aml_monitor.get_aml_dashboard()
+        return dashboard_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching AML dashboard: {str(e)}"
+        )
+
+@app.get("/api/aml/alerts")
+async def get_aml_alerts(
+    risk_level: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get AML alerts with optional filtering"""
+    try:
+        query = {}
+        if risk_level:
+            query["risk_level"] = risk_level
+        if status:
+            query["status"] = status
+        
+        cursor = aml_monitor.alerts_collection.find(query).sort("timestamp", -1).limit(limit)
+        alerts = []
+        
+        async for alert in cursor:
+            alerts.append({
+                "alert_id": alert["alert_id"],
+                "transaction_id": alert["transaction_id"],
+                "user_id": alert["user_id"],
+                "alert_type": alert["alert_type"],
+                "risk_level": alert["risk_level"],
+                "score": alert["score"],
+                "description": alert["description"],
+                "timestamp": alert["timestamp"],
+                "status": alert["status"],
+                "cbj_reported": alert.get("cbj_reported", False)
+            })
+        
+        return {"alerts": alerts, "total": len(alerts)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching AML alerts: {str(e)}"
+        )
+
+@app.post("/api/aml/alerts/{alert_id}/resolve")
+async def resolve_aml_alert(
+    alert_id: str,
+    resolution_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Resolve an AML alert with analyst feedback"""
+    try:
+        is_false_positive = resolution_data.get("is_false_positive", False)
+        resolution = resolution_data.get("resolution", "")
+        analyst_id = current_user["_id"]
+        
+        await aml_monitor.process_alert_feedback(
+            alert_id, is_false_positive, resolution, analyst_id
+        )
+        
+        return {"message": "Alert resolved successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error resolving alert: {str(e)}"
+        )
+
+@app.get("/api/aml/user-risk/{user_id}")
+async def get_user_risk_profile(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's risk profile and transaction patterns"""
+    try:
+        # Get user's recent transactions
+        cursor = transactions_collection.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)],
+            limit=100
+        )
+        
+        transactions = []
+        async for tx in cursor:
+            transactions.append({
+                "transaction_id": tx.get("transaction_id", tx["_id"]),
+                "amount": tx["amount"],
+                "transaction_type": tx["transaction_type"],
+                "timestamp": tx.get("timestamp", tx["created_at"].isoformat()),
+                "currency": tx.get("currency", "JOD")
+            })
+        
+        # Get user's alerts
+        alert_cursor = aml_monitor.alerts_collection.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)],
+            limit=20
+        )
+        
+        alerts = []
+        async for alert in alert_cursor:
+            alerts.append({
+                "alert_id": alert["alert_id"],
+                "alert_type": alert["alert_type"],
+                "risk_level": alert["risk_level"],
+                "score": alert["score"],
+                "timestamp": alert["timestamp"],
+                "status": alert["status"]
+            })
+        
+        # Calculate risk metrics
+        if transactions:
+            amounts = [tx["amount"] for tx in transactions]
+            risk_metrics = {
+                "total_transactions": len(transactions),
+                "total_amount": sum(amounts),
+                "avg_amount": sum(amounts) / len(amounts),
+                "max_amount": max(amounts),
+                "total_alerts": len(alerts),
+                "high_risk_alerts": len([a for a in alerts if a["risk_level"] == "high"]),
+                "critical_alerts": len([a for a in alerts if a["risk_level"] == "critical"])
+            }
+        else:
+            risk_metrics = {
+                "total_transactions": 0,
+                "total_amount": 0,
+                "avg_amount": 0,
+                "max_amount": 0,
+                "total_alerts": 0,
+                "high_risk_alerts": 0,
+                "critical_alerts": 0
+            }
+        
+        return {
+            "user_id": user_id,
+            "risk_metrics": risk_metrics,
+            "recent_transactions": transactions[:10],
+            "recent_alerts": alerts[:10]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user risk profile: {str(e)}"
+        )
+
+# Biometric Authentication API Endpoints
+
+@app.post("/api/biometric/enroll")
+async def enroll_biometric(
+    biometric_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Enroll user's biometric data"""
+    try:
+        biometric_type = BiometricType(biometric_data.get("biometric_type"))
+        data = biometric_data.get("data", "")
+        device_fingerprint = biometric_data.get("device_fingerprint", "")
+        
+        result = await biometric_service.enroll_biometric(
+            current_user["_id"],
+            biometric_type,
+            data,
+            device_fingerprint
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Biometric enrollment error: {str(e)}"
+        )
+
+@app.post("/api/biometric/authenticate")
+async def authenticate_biometric(
+    biometric_data: dict,
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Authenticate user using biometric data"""
+    try:
+        biometric_type = BiometricType(biometric_data.get("biometric_type"))
+        data = biometric_data.get("data", "")
+        device_fingerprint = biometric_data.get("device_fingerprint", "")
+        
+        # Get IP address and user agent
+        ip_address = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+        
+        result = await biometric_service.authenticate_biometric(
+            current_user["_id"],
+            biometric_type,
+            data,
+            device_fingerprint,
+            ip_address,
+            user_agent
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Biometric authentication error: {str(e)}"
+        )
+
+@app.get("/api/biometric/user/{user_id}")
+async def get_user_biometrics(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's enrolled biometrics"""
+    try:
+        # Check if user can access this data
+        if current_user["_id"] != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        result = await biometric_service.get_user_biometrics(user_id)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching biometrics: {str(e)}"
+        )
+
+@app.delete("/api/biometric/revoke/{template_id}")
+async def revoke_biometric(
+    template_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Revoke a biometric template"""
+    try:
+        result = await biometric_service.revoke_biometric(
+            current_user["_id"],
+            template_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error revoking biometric: {str(e)}"
+        )
+
+@app.get("/api/biometric/history")
+async def get_biometric_history(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's biometric authentication history"""
+    try:
+        result = await biometric_service.get_authentication_history(
+            current_user["_id"],
+            limit
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching history: {str(e)}"
+        )
+
+# Risk Scoring API Endpoints
+
+@app.get("/api/risk/assessment/{user_id}")
+async def get_risk_assessment(
+    user_id: str,
+    transaction_data: Optional[dict] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get comprehensive risk assessment for user"""
+    try:
+        # In production, check admin privileges
+        assessment = await risk_service.assess_comprehensive_risk(
+            user_id,
+            transaction_data
+        )
+        
+        return {
+            "assessment_id": assessment.assessment_id,
+            "risk_level": assessment.risk_level.value,
+            "risk_score": assessment.risk_score,
+            "credit_score": int(assessment.credit_score * 850),  # Convert back to credit score
+            "fraud_score": assessment.fraud_score,
+            "behavioral_score": assessment.behavioral_score,
+            "risk_factors": assessment.risk_factors,
+            "protective_factors": assessment.protective_factors,
+            "recommendations": assessment.recommendations,
+            "timestamp": assessment.timestamp
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk assessment error: {str(e)}"
+        )
+
+@app.get("/api/risk/history/{user_id}")
+async def get_risk_history(
+    user_id: str,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's risk assessment history"""
+    try:
+        history = await risk_service.get_user_risk_history(user_id, limit)
+        return {"history": history}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching risk history: {str(e)}"
+        )
+
+@app.get("/api/risk/dashboard")
+async def get_risk_dashboard(current_user: dict = Depends(get_current_user)):
+    """Get risk management dashboard"""
+    try:
+        # Get risk statistics
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$risk_level",
+                    "count": {"$sum": 1},
+                    "avg_score": {"$avg": "$risk_score"}
+                }
+            }
+        ]
+        
+        cursor = risk_service.risk_assessments_collection.aggregate(pipeline)
+        risk_stats = {}
+        
+        async for doc in cursor:
+            risk_stats[doc["_id"]] = {
+                "count": doc["count"],
+                "avg_score": doc["avg_score"]
+            }
+        
+        # Get recent assessments
+        recent_cursor = risk_service.risk_assessments_collection.find(
+            {}
+        ).sort("timestamp", -1).limit(10)
+        
+        recent_assessments = []
+        async for doc in recent_cursor:
+            recent_assessments.append({
+                "assessment_id": doc["assessment_id"],
+                "user_id": doc["user_id"],
+                "risk_level": doc["risk_level"],
+                "risk_score": doc["risk_score"],
+                "timestamp": doc["timestamp"]
+            })
+        
+        return {
+            "risk_statistics": risk_stats,
+            "recent_assessments": recent_assessments
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching risk dashboard: {str(e)}"
+        )
+
+# Security System Initialization
+
+@app.post("/api/security/initialize")
+async def initialize_security_systems(current_user: dict = Depends(get_current_user)):
+    """Initialize all security systems"""
+    try:
+        # Initialize AML system
+        await aml_monitor.initialize_system()
+        
+        # Initialize biometric system
+        await biometric_service.initialize_biometric_system()
+        
+        # Initialize risk scoring system
+        await risk_service.initialize_risk_system()
+        
+        return {
+            "message": "All security systems initialized successfully",
+            "systems": ["AML Monitor", "Biometric Authentication", "Risk Scoring"]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Security system initialization error: {str(e)}"
+        )
+
+@app.get("/api/security/status")
+async def get_security_status(current_user: dict = Depends(get_current_user)):
+    """Get security systems status"""
+    try:
+        # Check AML system
+        aml_dashboard = await aml_monitor.get_aml_dashboard()
+        
+        # Check biometric system
+        biometric_stats = await biometric_service.biometric_templates_collection.count_documents({})
+        
+        # Check risk system
+        risk_assessments = await risk_service.risk_assessments_collection.count_documents({})
+        
+        return {
+            "aml_system": {
+                "status": "active",
+                "total_alerts": aml_dashboard.get("total_alerts_7d", 0),
+                "model_version": aml_dashboard.get("model_version", "1.0")
+            },
+            "biometric_system": {
+                "status": "active",
+                "total_templates": biometric_stats
+            },
+            "risk_system": {
+                "status": "active",
+                "total_assessments": risk_assessments
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking security status: {str(e)}"
+        )
+
+# Enhanced Authentication with Risk Scoring
+
+@app.post("/api/auth/login-enhanced")
+async def enhanced_login(
+    login_data: UserLogin,
+    request: Request
+):
+    """Enhanced login with risk scoring and biometric support"""
+    try:
+        # First, perform standard authentication
+        user = await users_collection.find_one({"email": login_data.email})
+        if not user or not pwd_context.verify(login_data.password, user["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
+            )
+        
+        # Get risk assessment
+        risk_assessment = await risk_service.assess_comprehensive_risk(user["_id"])
+        
+        # Get user's biometrics
+        biometrics = await biometric_service.get_user_biometrics(user["_id"])
+        
+        # Generate token
+        access_token = create_access_token(data={"sub": user["_id"]})
+        
+        # Determine if additional verification is needed
+        requires_additional_verification = (
+            risk_assessment.risk_level.value in ["high", "very_high"] or
+            risk_assessment.fraud_score > 0.7
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user["_id"],
+                "email": user["email"],
+                "full_name": user["full_name"]
+            },
+            "risk_assessment": {
+                "risk_level": risk_assessment.risk_level.value,
+                "risk_score": float(risk_assessment.risk_score),
+                "requires_additional_verification": bool(requires_additional_verification)
+            },
+            "biometric_options": [str(b["biometric_type"]) for b in biometrics.get("biometrics", [])],
+            "security_recommendations": [str(rec) for rec in risk_assessment.recommendations] if risk_assessment.recommendations else []
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Enhanced login error: {str(e)}"
+        )
+
+@app.post("/api/aml/initialize")
+async def initialize_aml_system(current_user: dict = Depends(get_current_user)):
+    """Initialize AML monitoring system"""
+    try:
+        await aml_monitor.initialize_system()
+        return {"message": "AML system initialized successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error initializing AML system: {str(e)}"
         )
 
 if __name__ == "__main__":
