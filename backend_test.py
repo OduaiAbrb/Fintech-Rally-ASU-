@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
 Backend API Testing Suite for Stablecoin Fintech Platform
-Tests Open Banking endpoints with JWT authentication
+Tests Phase 4 Security & Risk Management System:
+- AML (Anti-Money Laundering) System
+- Biometric Authentication System  
+- Risk Scoring System
+- Security System Management
 """
 
 import asyncio
 import httpx
 import json
 import os
+import base64
 from datetime import datetime
 from typing import Dict, Any, Optional
 
