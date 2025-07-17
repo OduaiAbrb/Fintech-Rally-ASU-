@@ -512,8 +512,13 @@ class AMLMonitor:
                     rule_violations, prediction_details
                 )
                 
+                # Convert enum values for MongoDB storage
+                alert_dict = asdict(alert)
+                alert_dict['risk_level'] = alert.risk_level.value
+                alert_dict['alert_type'] = alert.alert_type.value
+                
                 # Store alert
-                await self.alerts_collection.insert_one(asdict(alert))
+                await self.alerts_collection.insert_one(alert_dict)
                 
                 # Report to Jordan Central Bank if critical
                 if risk_level == RiskLevel.CRITICAL:
