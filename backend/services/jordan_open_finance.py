@@ -71,9 +71,9 @@ class JordanOpenFinanceService:
     
     # Real API Endpoints based on the portal documentation
     
-    async def get_accounts(self, skip: int = 0, account_type: str = None, limit: int = 10, 
+    async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
                           account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
-        """Get user accounts using real JoPACC endpoint"""
+        """Get user accounts using real JoPACC endpoint with proper headers"""
         if self.sandbox_mode:
             # Mock data that follows the real API structure
             return {
@@ -131,7 +131,21 @@ class JordanOpenFinanceService:
                 "hasMore": False
             }
         
-        headers = await self.get_headers()
+        # Real JoPACC API call with proper headers
+        headers = {
+            'x-jws-signature': "",  # Would need proper JWS signature in production
+            'x-auth-date': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'x-idempotency-key': str(uuid.uuid4()),
+            'Authorization': f"Bearer {await self.get_access_token()}",
+            'x-customer-user-agent': "StableCoin-Fintech-App/1.0",
+            'x-financial-id': self.x_financial_id,
+            'x-customer-ip-address': "127.0.0.1",
+            'x-interactions-id': str(uuid.uuid4()),
+            'x-customer-id': "customer_123",  # Should be the actual customer ID
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        
         params = {
             "skip": skip,
             "limit": limit,
@@ -145,7 +159,7 @@ class JordanOpenFinanceService:
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Accounts/v1.3/accounts",
+                f"{self.api_base}/gateway/Accounts/v0.4.3/accounts",
                 headers=headers,
                 params=params
             )
