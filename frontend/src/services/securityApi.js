@@ -35,8 +35,11 @@ const securityApi = {
     if (userId) {
       return api.get(`/biometric/user/${userId}`);
     }
-    // If no userId provided, get current user's biometrics
-    return api.get('/biometric/user/current');
+    // Get current user's ID from token and use it
+    return api.get('/user/profile').then(response => {
+      const currentUserId = response.data.user_id;
+      return api.get(`/biometric/user/${currentUserId}`);
+    });
   },
     
   revokeBiometric: (templateId) => 
