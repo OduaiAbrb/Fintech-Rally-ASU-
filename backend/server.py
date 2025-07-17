@@ -1087,22 +1087,10 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
         if consent:
             try:
-                # Use real JoPACC endpoint
-                accounts_response = await jof_service.get_accounts(limit=20)
+                # Use real JoPACC endpoint with the new method
+                accounts_response = await jof_service.get_accounts_new(limit=20)
                 
                 for account in accounts_response.get("accounts", []):
-                    # Get real-time balance for each account
-                    balance_response = await jof_service.get_account_balances(account["accountId"])
-                    
-                    # Extract available balance
-                    available_balance = 0
-                    current_balance = 0
-                    for balance in balance_response.get("balances", []):
-                        if balance["type"] == "available":
-                            available_balance = balance["amount"]
-                        elif balance["type"] == "current":
-                            current_balance = balance["amount"]
-                    
                     account_data = {
                         "account_id": account["accountId"],
                         "account_name": account["accountName"],
@@ -1111,14 +1099,14 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                         "bank_code": account["bankCode"],
                         "account_type": account["accountType"],
                         "currency": account["currency"],
-                        "balance": current_balance,
-                        "available_balance": available_balance,
+                        "balance": float(account["balance"]["current"]),
+                        "available_balance": float(account["balance"]["available"]),
                         "status": account["accountStatus"],
                         "last_updated": account["lastUpdated"]
                     }
                     
                     linked_accounts.append(account_data)
-                    total_bank_balance += current_balance
+                    total_bank_balance += account_data["balance"]
                     
             except Exception as e:
                 print(f"Error fetching accounts: {e}")
