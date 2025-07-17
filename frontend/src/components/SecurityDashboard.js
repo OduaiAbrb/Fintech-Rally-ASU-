@@ -227,7 +227,7 @@ const SecurityDashboard = () => {
               </div>
             )}
 
-            {amlDashboard?.recent_alerts && (
+            {amlDashboard?.recent_alerts && amlDashboard.recent_alerts.length > 0 && (
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Recent Alerts</h4>
                 <div className="space-y-2">
@@ -245,8 +245,8 @@ const SecurityDashboard = () => {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
