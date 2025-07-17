@@ -19,18 +19,17 @@ const SecurityDashboard = () => {
     try {
       setLoading(true);
       
-      // Load all security data
-      const [statusResponse, amlResponse, riskResponse, biometricResponse] = await Promise.all([
+      // Load security data (biometric disabled)
+      const [statusResponse, amlResponse, riskResponse] = await Promise.all([
         securityApi.getSecurityStatus(),
         securityApi.getAMLDashboard(),
-        securityApi.getRiskDashboard(),
-        securityApi.getUserBiometrics()
+        securityApi.getRiskDashboard()
       ]);
 
       setSecurityStatus(statusResponse.data);
       setAmlDashboard(amlResponse.data);
       setRiskDashboard(riskResponse.data);
-      setUserBiometrics(biometricResponse.data);
+      setUserBiometrics({ biometrics: [] }); // Disabled
       
     } catch (err) {
       setError('Failed to load security data');
