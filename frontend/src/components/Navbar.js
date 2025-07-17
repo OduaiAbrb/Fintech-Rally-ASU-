@@ -17,6 +17,7 @@ const Navbar = () => {
     { name: 'Dashboard', path: '/dashboard', icon: '📊' },
     { name: 'Profile', path: '/profile', icon: '👤' },
     { name: 'Wallet', path: '/wallet', icon: '💳' },
+    { name: 'Transfers', path: '/transfers', icon: '💸' },
     { name: 'Open Banking', path: '/open-banking', icon: '🏦' },
     { name: 'Hey Dinar', path: '/hey-dinar', icon: '🤖' },
     { name: 'Transactions', path: '/transactions', icon: '📈' },
