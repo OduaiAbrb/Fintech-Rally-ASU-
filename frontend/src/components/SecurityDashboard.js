@@ -252,50 +252,6 @@ const SecurityDashboard = () => {
         </div>
       )}
 
-      {activeTab === 'biometric' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Biometric Authentication</h3>
-            
-            {userBiometrics?.biometrics && userBiometrics.biometrics.length > 0 ? (
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Enrolled Biometrics</h4>
-                {userBiometrics.biometrics.map((biometric, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">
-                        {biometric.biometric_type === 'face' ? '😊' : 
-                         biometric.biometric_type === 'fingerprint' ? '👆' : '🔒'}
-                      </span>
-                      <div>
-                        <div className="font-medium capitalize">
-                          {biometric.biometric_type} Authentication
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Quality: {(biometric.quality_score * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Used: {biometric.usage_count || 0} times
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Enrolled: {new Date(biometric.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-4xl mb-4">🔒</div>
-                <p className="text-gray-500">No biometric authentication enrolled</p>
-                <p className="text-sm text-gray-400">Enable biometric authentication for enhanced security</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {activeTab === 'risk' && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow-md p-6">
