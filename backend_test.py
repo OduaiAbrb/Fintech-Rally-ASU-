@@ -439,8 +439,8 @@ class BackendTester:
             return False
     
     async def run_all_tests(self):
-        """Run all Phase 4 Security & Risk Management tests"""
-        print("🚀 Starting Phase 4 Security & Risk Management System Tests")
+        """Run all Phase 3 Open Banking Integration tests"""
+        print("🚀 Starting Phase 3 Open Banking Integration Tests with Real JoPACC API Calls")
         print(f"Backend URL: {BACKEND_URL}")
         print(f"API Base: {API_BASE}")
         
@@ -455,45 +455,57 @@ class BackendTester:
         # Run tests
         test_results = []
         
-        # 1. Security System Management Tests
-        test_results.append(await self.test_security_initialize())
-        test_results.append(await self.test_security_status())
+        # 1. Real JoPACC API Integration Tests
+        print("\n" + "="*60)
+        print("🌐 TESTING REAL JoPACC API INTEGRATION")
+        print("="*60)
+        test_results.append(await self.test_real_jopacc_accounts_api())
+        test_results.append(await self.test_real_jopacc_dashboard_api())
+        test_results.append(await self.test_real_jopacc_fx_quote_api())
         
-        # 2. AML System Tests
-        test_results.append(await self.test_aml_initialize())
-        test_results.append(await self.test_aml_dashboard())
-        test_results.append(await self.test_aml_alerts())
-        test_results.append(await self.test_aml_user_risk())
+        # 2. Open Banking Endpoints (with real API fallback)
+        print("\n" + "="*60)
+        print("📱 TESTING OPEN BANKING ENDPOINTS")
+        print("="*60)
+        test_results.append(await self.test_connect_accounts_endpoint())
+        test_results.append(await self.test_get_accounts_endpoint())
+        test_results.append(await self.test_get_dashboard_endpoint())
+        test_results.append(await self.test_authentication_required())
         
-        # 3. Biometric Authentication Tests
-        test_results.append(await self.test_biometric_enroll())
-        test_results.append(await self.test_biometric_authenticate())
-        test_results.append(await self.test_biometric_user_data())
-        test_results.append(await self.test_biometric_history())
+        # 3. User-to-User Transfer System
+        print("\n" + "="*60)
+        print("💸 TESTING USER-TO-USER TRANSFER SYSTEM")
+        print("="*60)
+        test_results.append(await self.test_user_to_user_transfer())
+        test_results.append(await self.test_transfer_history())
+        test_results.append(await self.test_user_search())
         
-        # 4. Risk Scoring Tests
-        test_results.append(await self.test_risk_assessment())
-        test_results.append(await self.test_risk_history())
-        test_results.append(await self.test_risk_dashboard())
+        # 4. Security System Updates (Biometric Disabled)
+        print("\n" + "="*60)
+        print("🔒 TESTING SECURITY SYSTEM (BIOMETRIC DISABLED)")
+        print("="*60)
+        test_results.append(await self.test_security_status_biometric_disabled())
+        test_results.append(await self.test_security_initialize_skip_biometric())
         
-        # 5. Enhanced Login Test
-        test_results.append(await self.test_enhanced_login())
-        
-        # 6. Integration Tests
-        test_results.append(await self.test_aml_transaction_monitoring())
+        # 5. Transaction Flow with AML Monitoring
+        print("\n" + "="*60)
+        print("🚨 TESTING TRANSACTION FLOW WITH AML MONITORING")
+        print("="*60)
+        test_results.append(await self.test_deposit_with_aml_monitoring())
+        test_results.append(await self.test_user_transfer_with_aml_monitoring())
         
         # Summary
         passed = sum(test_results)
         total = len(test_results)
         
         print(f"\n{'='*60}")
-        print(f"🏁 PHASE 4 SECURITY SYSTEM TEST SUMMARY")
+        print(f"🏁 PHASE 3 OPEN BANKING INTEGRATION TEST SUMMARY")
         print(f"{'='*60}")
         print(f"✅ Passed: {passed}/{total}")
         print(f"❌ Failed: {total - passed}/{total}")
         
         if passed == total:
-            print("🎉 All Phase 4 Security & Risk Management tests passed!")
+            print("🎉 All Phase 3 Open Banking Integration tests passed!")
         else:
             print("⚠️  Some tests failed. Check the details above.")
         
