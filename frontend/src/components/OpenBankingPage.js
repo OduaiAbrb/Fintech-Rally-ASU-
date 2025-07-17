@@ -31,25 +31,29 @@ const OpenBankingPage = () => {
   const handleRequestConsent = async () => {
     try {
       setConsentLoading(true);
-      const permissions = ['ais', 'pis', 'fps', 'fx'];
-      await openBankingService.requestConsent(permissions);
+      
+      // Use the new connect accounts endpoint
+      const response = await openBankingService.connectBankAccounts();
       
       setNotification({
         type: 'success',
-        message: 'Banking consent granted successfully! Refreshing your accounts...'
+        message: 'Banking accounts connected successfully! Loading your accounts...'
       });
       
-      // Refresh dashboard data
+      // Update dashboard data with the connected accounts
+      setDashboardData(response.data);
+      
+      // Close modal after a short delay
       setTimeout(() => {
-        fetchDashboardData();
         setShowConsentModal(false);
       }, 2000);
+      
     } catch (err) {
       setNotification({
         type: 'error',
-        message: 'Failed to grant banking consent. Please try again.'
+        message: 'Failed to connect banking accounts. Please try again.'
       });
-      console.error('Consent error:', err);
+      console.error('Account connection error:', err);
     } finally {
       setConsentLoading(false);
     }
