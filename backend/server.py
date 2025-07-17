@@ -620,51 +620,46 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
         
-        if jof_service.sandbox_mode:
-            # Use the new response format
-            for account in accounts_response["accounts"]:
-                account_data = {
-                    "account_id": account["accountId"],
-                    "account_name": account["accountName"],
-                    "account_number": account["accountNumber"],
-                    "bank_name": account["bankName"],
-                    "bank_code": account["bankCode"],
-                    "account_type": account["accountType"],
-                    "currency": account["currency"],
-                    "balance": float(account["balance"]["current"]),
-                    "available_balance": float(account["balance"]["available"]),
-                    "status": account["accountStatus"],
-                    "last_updated": account["lastUpdated"]
-                }
-                accounts.append(account_data)
-                
-                # Store/update accounts in database
-                account_doc = {
-                    "_id": account["accountId"],
-                    "user_id": current_user["_id"],
-                    "consent_id": consent["_id"] if consent else None,
-                    "account_name": account_data["account_name"],
-                    "account_number": account_data["account_number"],
-                    "bank_name": account_data["bank_name"],
-                    "bank_code": account_data["bank_code"],
-                    "account_type": account_data["account_type"],
-                    "currency": account_data["currency"],
-                    "balance": account_data["balance"],
-                    "available_balance": account_data["available_balance"],
-                    "status": account_data["status"],
-                    "last_updated": datetime.utcnow(),
-                    "jopacc_account_data": account
-                }
-                
-                await linked_accounts_collection.update_one(
-                    {"_id": account["accountId"]},
-                    {"$set": account_doc},
-                    upsert=True
-                )
-        else:
-            # Handle real API response (when not in sandbox mode)
-            # This would need to be adapted based on actual JoPACC API response structure
-            pass
+        # Process accounts from either real API or fallback mock data
+        for account in accounts_response.get("accounts", []):
+            account_data = {
+                "account_id": account["accountId"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": float(account["balance"]["current"]),
+                "available_balance": float(account["balance"]["available"]),
+                "status": account["accountStatus"],
+                "last_updated": account["lastUpdated"]
+            }
+            accounts.append(account_data)
+            
+            # Store/update accounts in database
+            account_doc = {
+                "_id": account["accountId"],
+                "user_id": current_user["_id"],
+                "consent_id": consent["_id"] if consent else None,
+                "account_name": account_data["account_name"],
+                "account_number": account_data["account_number"],
+                "bank_name": account_data["bank_name"],
+                "bank_code": account_data["bank_code"],
+                "account_type": account_data["account_type"],
+                "currency": account_data["currency"],
+                "balance": account_data["balance"],
+                "available_balance": account_data["available_balance"],
+                "status": account_data["status"],
+                "last_updated": datetime.utcnow(),
+                "jopacc_account_data": account
+            }
+            
+            await linked_accounts_collection.update_one(
+                {"_id": account["accountId"]},
+                {"$set": account_doc},
+                upsert=True
+            )
         
         return {
             "accounts": accounts,
@@ -1569,122 +1564,48 @@ async def get_user_risk_profile(
             detail=f"Error fetching user risk profile: {str(e)}"
         )
 
-# Biometric Authentication API Endpoints
+# Biometric Authentication API Endpoints - DISABLED AS REQUESTED
 
-@app.post("/api/biometric/enroll")
-async def enroll_biometric(
-    biometric_data: dict,
-    current_user: dict = Depends(get_current_user)
-):
-    """Enroll user's biometric data"""
-    try:
-        biometric_type = BiometricType(biometric_data.get("biometric_type"))
-        data = biometric_data.get("data", "")
-        device_fingerprint = biometric_data.get("device_fingerprint", "")
-        
-        result = await biometric_service.enroll_biometric(
-            current_user["_id"],
-            biometric_type,
-            data,
-            device_fingerprint
-        )
-        
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Biometric enrollment error: {str(e)}"
-        )
+# @app.post("/api/biometric/enroll")
+# async def enroll_biometric(
+#     biometric_data: dict,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Enroll user's biometric data - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.post("/api/biometric/authenticate")
-async def authenticate_biometric(
-    biometric_data: dict,
-    request: Request,
-    current_user: dict = Depends(get_current_user)
-):
-    """Authenticate user using biometric data"""
-    try:
-        biometric_type = BiometricType(biometric_data.get("biometric_type"))
-        data = biometric_data.get("data", "")
-        device_fingerprint = biometric_data.get("device_fingerprint", "")
-        
-        # Get IP address and user agent
-        ip_address = request.client.host
-        user_agent = request.headers.get("user-agent", "")
-        
-        result = await biometric_service.authenticate_biometric(
-            current_user["_id"],
-            biometric_type,
-            data,
-            device_fingerprint,
-            ip_address,
-            user_agent
-        )
-        
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Biometric authentication error: {str(e)}"
-        )
+# @app.post("/api/biometric/authenticate")
+# async def authenticate_biometric(
+#     biometric_data: dict,
+#     request: Request,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Authenticate user using biometric data - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.get("/api/biometric/user/{user_id}")
-async def get_user_biometrics(
-    user_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's enrolled biometrics"""
-    try:
-        # Check if user can access this data
-        if current_user["_id"] != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
-            )
-        
-        result = await biometric_service.get_user_biometrics(user_id)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching biometrics: {str(e)}"
-        )
+# @app.get("/api/biometric/user/{user_id}")
+# async def get_user_biometrics(
+#     user_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Get user's enrolled biometrics - DISABLED"""
+#     return {"biometrics": []}
 
-@app.delete("/api/biometric/revoke/{template_id}")
-async def revoke_biometric(
-    template_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Revoke a biometric template"""
-    try:
-        result = await biometric_service.revoke_biometric(
-            current_user["_id"],
-            template_id
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error revoking biometric: {str(e)}"
-        )
+# @app.delete("/api/biometric/revoke/{template_id}")
+# async def revoke_biometric(
+#     template_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Revoke a biometric template - DISABLED"""
+#     return {"message": "Biometric authentication is currently disabled"}
 
-@app.get("/api/biometric/history")
-async def get_biometric_history(
-    limit: int = 50,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's biometric authentication history"""
-    try:
-        result = await biometric_service.get_authentication_history(
-            current_user["_id"],
-            limit
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching history: {str(e)}"
-        )
+# @app.get("/api/biometric/history")
+# async def get_biometric_history(
+#     limit: int = 50,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """Get user's biometric authentication history - DISABLED"""
+#     return {"history": []}
 
 # Risk Scoring API Endpoints
 
@@ -1785,6 +1706,273 @@ async def get_risk_dashboard(current_user: dict = Depends(get_current_user)):
             detail=f"Error fetching risk dashboard: {str(e)}"
         )
 
+# User-to-User Transfer API Endpoints
+
+@app.post("/api/transfers/user-to-user")
+async def create_user_transfer(
+    transfer_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a transfer between platform users"""
+    try:
+        recipient_identifier = transfer_data.get("recipient_identifier")  # email or phone
+        amount = transfer_data.get("amount", 0)
+        currency = transfer_data.get("currency", "JOD")
+        description = transfer_data.get("description", "")
+        
+        if amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Transfer amount must be greater than 0"
+            )
+        
+        # Find recipient by email or phone
+        recipient = await users_collection.find_one({
+            "$or": [
+                {"email": recipient_identifier},
+                {"phone": recipient_identifier}
+            ]
+        })
+        
+        if not recipient:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recipient not found"
+            )
+        
+        if recipient["_id"] == current_user["_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot transfer to yourself"
+            )
+        
+        # Check sender's balance
+        sender_wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+        if not sender_wallet:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sender wallet not found"
+            )
+        
+        # Check if sender has sufficient balance
+        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("stablecoin_balance", 0)
+        if sender_balance < amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient balance. Available: {sender_balance} {currency}"
+            )
+        
+        # Get or create recipient wallet
+        recipient_wallet = await wallets_collection.find_one({"user_id": recipient["_id"]})
+        if not recipient_wallet:
+            # Create wallet for recipient
+            recipient_wallet = {
+                "_id": str(uuid.uuid4()),
+                "user_id": recipient["_id"],
+                "jd_balance": 0.0,
+                "stablecoin_balance": 0.0,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await wallets_collection.insert_one(recipient_wallet)
+        
+        # Create transfer transaction
+        transfer_id = str(uuid.uuid4())
+        
+        # Update sender balance
+        sender_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        new_sender_balance = sender_balance - amount
+        await wallets_collection.update_one(
+            {"user_id": current_user["_id"]},
+            {"$set": {sender_balance_field: new_sender_balance, "updated_at": datetime.utcnow()}}
+        )
+        
+        # Update recipient balance
+        recipient_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        recipient_current_balance = recipient_wallet.get(recipient_balance_field, 0)
+        new_recipient_balance = recipient_current_balance + amount
+        await wallets_collection.update_one(
+            {"user_id": recipient["_id"]},
+            {"$set": {recipient_balance_field: new_recipient_balance, "updated_at": datetime.utcnow()}}
+        )
+        
+        # Create transaction records for both users
+        sender_transaction = {
+            "_id": f"{transfer_id}_sender",
+            "transaction_id": f"{transfer_id}_sender",
+            "user_id": current_user["_id"],
+            "transaction_type": "transfer_out",
+            "amount": -amount,  # Negative for sender
+            "currency": currency,
+            "status": "completed",
+            "description": f"Transfer to {recipient['full_name']} - {description}",
+            "recipient_id": recipient["_id"],
+            "recipient_name": recipient["full_name"],
+            "timestamp": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "account_id": current_user["_id"],
+            "account_age_days": (datetime.utcnow() - current_user.get("created_at", datetime.utcnow())).days
+        }
+        
+        recipient_transaction = {
+            "_id": f"{transfer_id}_recipient",
+            "transaction_id": f"{transfer_id}_recipient",
+            "user_id": recipient["_id"],
+            "transaction_type": "transfer_in",
+            "amount": amount,  # Positive for recipient
+            "currency": currency,
+            "status": "completed",
+            "description": f"Transfer from {current_user['full_name']} - {description}",
+            "sender_id": current_user["_id"],
+            "sender_name": current_user["full_name"],
+            "timestamp": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "account_id": recipient["_id"],
+            "account_age_days": (datetime.utcnow() - recipient.get("created_at", datetime.utcnow())).days
+        }
+        
+        # Insert both transactions
+        await transactions_collection.insert_one(sender_transaction)
+        await transactions_collection.insert_one(recipient_transaction)
+        
+        # Run AML monitoring on both transactions
+        try:
+            sender_aml_alert = await aml_monitor.monitor_transaction(sender_transaction)
+            recipient_aml_alert = await aml_monitor.monitor_transaction(recipient_transaction)
+            
+            if sender_aml_alert:
+                logging.info(f"AML Alert for sender transfer {transfer_id}: {sender_aml_alert.alert_type.value}")
+            if recipient_aml_alert:
+                logging.info(f"AML Alert for recipient transfer {transfer_id}: {recipient_aml_alert.alert_type.value}")
+        except Exception as e:
+            logging.error(f"AML monitoring error for transfer {transfer_id}: {e}")
+        
+        return {
+            "transfer_id": transfer_id,
+            "status": "completed",
+            "sender": {
+                "name": current_user["full_name"],
+                "new_balance": new_sender_balance
+            },
+            "recipient": {
+                "name": recipient["full_name"],
+                "identifier": recipient_identifier
+            },
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "timestamp": datetime.utcnow().isoformat(),
+            "transaction_ids": {
+                "sender": f"{transfer_id}_sender",
+                "recipient": f"{transfer_id}_recipient"
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Transfer failed: {str(e)}"
+        )
+
+@app.get("/api/transfers/history")
+async def get_transfer_history(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's transfer history"""
+    try:
+        # Get transfers both sent and received
+        cursor = transactions_collection.find({
+            "user_id": current_user["_id"],
+            "transaction_type": {"$in": ["transfer_out", "transfer_in"]}
+        }).sort("timestamp", -1).limit(limit)
+        
+        transfers = []
+        async for transaction in cursor:
+            transfer_data = {
+                "transaction_id": transaction["transaction_id"],
+                "type": transaction["transaction_type"],
+                "amount": transaction["amount"],
+                "currency": transaction["currency"],
+                "status": transaction["status"],
+                "description": transaction["description"],
+                "timestamp": transaction["timestamp"],
+                "created_at": transaction["created_at"]
+            }
+            
+            # Add counterparty information
+            if transaction["transaction_type"] == "transfer_out":
+                transfer_data["counterparty"] = {
+                    "id": transaction.get("recipient_id"),
+                    "name": transaction.get("recipient_name"),
+                    "type": "recipient"
+                }
+            else:  # transfer_in
+                transfer_data["counterparty"] = {
+                    "id": transaction.get("sender_id"),
+                    "name": transaction.get("sender_name"),
+                    "type": "sender"
+                }
+            
+            transfers.append(transfer_data)
+        
+        return {
+            "transfers": transfers,
+            "total": len(transfers)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching transfer history: {str(e)}"
+        )
+
+@app.get("/api/users/search")
+async def search_users(
+    query: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Search for users by email or phone for transfers"""
+    try:
+        if len(query) < 3:
+            return {"users": []}
+        
+        # Search by email or phone (partial match)
+        cursor = users_collection.find({
+            "$and": [
+                {"_id": {"$ne": current_user["_id"]}},  # Exclude current user
+                {
+                    "$or": [
+                        {"email": {"$regex": query, "$options": "i"}},
+                        {"phone": {"$regex": query, "$options": "i"}},
+                        {"full_name": {"$regex": query, "$options": "i"}}
+                    ]
+                }
+            ]
+        }).limit(10)
+        
+        users = []
+        async for user in cursor:
+            users.append({
+                "id": user["_id"],
+                "full_name": user["full_name"],
+                "email": user["email"],
+                "phone": user.get("phone", ""),
+                "created_at": user["created_at"]
+            })
+        
+        return {"users": users}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error searching users: {str(e)}"
+        )
+
 # Security System Initialization
 
 @app.post("/api/security/initialize")
@@ -1794,15 +1982,13 @@ async def initialize_security_systems(current_user: dict = Depends(get_current_u
         # Initialize AML system
         await aml_monitor.initialize_system()
         
-        # Initialize biometric system
-        await biometric_service.initialize_biometric_system()
-        
-        # Initialize risk scoring system
-        await risk_service.initialize_risk_system()
+        # Initialize biometric system - DISABLED
+        # await biometric_service.initialize_biometric_system()
         
         return {
-            "message": "All security systems initialized successfully",
-            "systems": ["AML Monitor", "Biometric Authentication", "Risk Scoring"]
+            "message": "Security systems initialized successfully (biometric disabled)",
+            "systems": ["AML Monitor", "Risk Scoring"],
+            "disabled_systems": ["Biometric Authentication"]
         }
     except Exception as e:
         raise HTTPException(
@@ -1817,8 +2003,8 @@ async def get_security_status(current_user: dict = Depends(get_current_user)):
         # Check AML system
         aml_dashboard = await aml_monitor.get_aml_dashboard()
         
-        # Check biometric system
-        biometric_stats = await biometric_service.biometric_templates_collection.count_documents({})
+        # Check biometric system - DISABLED
+        biometric_stats = 0  # Disabled
         
         # Check risk system
         risk_assessments = await risk_service.risk_assessments_collection.count_documents({})
@@ -1830,8 +2016,9 @@ async def get_security_status(current_user: dict = Depends(get_current_user)):
                 "model_version": aml_dashboard.get("model_version", "1.0")
             },
             "biometric_system": {
-                "status": "active",
-                "total_templates": biometric_stats
+                "status": "disabled",
+                "total_templates": 0,
+                "message": "Biometric authentication is currently disabled"
             },
             "risk_system": {
                 "status": "active",

@@ -19,18 +19,17 @@ const SecurityDashboard = () => {
     try {
       setLoading(true);
       
-      // Load all security data
-      const [statusResponse, amlResponse, riskResponse, biometricResponse] = await Promise.all([
+      // Load security data (biometric disabled)
+      const [statusResponse, amlResponse, riskResponse] = await Promise.all([
         securityApi.getSecurityStatus(),
         securityApi.getAMLDashboard(),
-        securityApi.getRiskDashboard(),
-        securityApi.getUserBiometrics()
+        securityApi.getRiskDashboard()
       ]);
 
       setSecurityStatus(statusResponse.data);
       setAmlDashboard(amlResponse.data);
       setRiskDashboard(riskResponse.data);
-      setUserBiometrics(biometricResponse.data);
+      setUserBiometrics({ biometrics: [] }); // Disabled
       
     } catch (err) {
       setError('Failed to load security data');
@@ -111,8 +110,8 @@ const SecurityDashboard = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">👆</span>
+              <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-2xl">🚫</span>
               </div>
             </div>
             <div className="ml-4">
@@ -121,7 +120,7 @@ const SecurityDashboard = () => {
                 Status: {securityStatus?.biometric_system?.status || 'Unknown'}
               </p>
               <p className="text-xs text-gray-500">
-                Templates: {securityStatus?.biometric_system?.total_templates || 0}
+                {securityStatus?.biometric_system?.message || 'Disabled'}
               </p>
             </div>
           </div>
@@ -163,7 +162,6 @@ const SecurityDashboard = () => {
           {[
             { id: 'overview', name: 'Overview', icon: '📋' },
             { id: 'aml', name: 'AML Monitoring', icon: '🛡️' },
-            { id: 'biometric', name: 'Biometric Auth', icon: '👆' },
             { id: 'risk', name: 'Risk Scoring', icon: '📊' }
           ].map((tab) => (
             <button
@@ -193,12 +191,14 @@ const SecurityDashboard = () => {
                 <p className="text-sm text-gray-600">✅ AML monitoring active</p>
                 <p className="text-sm text-gray-600">✅ Risk scoring enabled</p>
                 <p className="text-sm text-gray-600">✅ Transaction monitoring</p>
+                <p className="text-sm text-gray-600">🚫 Biometric authentication disabled</p>
               </div>
               <div>
                 <h4 className="font-medium text-gray-900">Advanced Features</h4>
                 <p className="text-sm text-gray-600">✅ ML-based fraud detection</p>
-                <p className="text-sm text-gray-600">✅ Biometric authentication</p>
                 <p className="text-sm text-gray-600">✅ Continuous learning models</p>
+                <p className="text-sm text-gray-600">✅ User-to-user transfers</p>
+                <p className="text-sm text-gray-600">🚫 Biometric features disabled</p>
               </div>
             </div>
           </div>
@@ -245,50 +245,6 @@ const SecurityDashboard = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'biometric' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Biometric Authentication</h3>
-            
-            {userBiometrics?.biometrics && userBiometrics.biometrics.length > 0 ? (
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Enrolled Biometrics</h4>
-                {userBiometrics.biometrics.map((biometric, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">
-                        {biometric.biometric_type === 'face' ? '😊' : 
-                         biometric.biometric_type === 'fingerprint' ? '👆' : '🔒'}
-                      </span>
-                      <div>
-                        <div className="font-medium capitalize">
-                          {biometric.biometric_type} Authentication
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Quality: {(biometric.quality_score * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Used: {biometric.usage_count || 0} times
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Enrolled: {new Date(biometric.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-4xl mb-4">🔒</div>
-                <p className="text-gray-500">No biometric authentication enrolled</p>
-                <p className="text-sm text-gray-400">Enable biometric authentication for enhanced security</p>
               </div>
             )}
           </div>
