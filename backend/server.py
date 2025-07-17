@@ -622,48 +622,44 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         # Process accounts from either real API or fallback mock data
         for account in accounts_response.get("accounts", []):
-                account_data = {
-                    "account_id": account["accountId"],
-                    "account_name": account["accountName"],
-                    "account_number": account["accountNumber"],
-                    "bank_name": account["bankName"],
-                    "bank_code": account["bankCode"],
-                    "account_type": account["accountType"],
-                    "currency": account["currency"],
-                    "balance": float(account["balance"]["current"]),
-                    "available_balance": float(account["balance"]["available"]),
-                    "status": account["accountStatus"],
-                    "last_updated": account["lastUpdated"]
-                }
-                accounts.append(account_data)
-                
-                # Store/update accounts in database
-                account_doc = {
-                    "_id": account["accountId"],
-                    "user_id": current_user["_id"],
-                    "consent_id": consent["_id"] if consent else None,
-                    "account_name": account_data["account_name"],
-                    "account_number": account_data["account_number"],
-                    "bank_name": account_data["bank_name"],
-                    "bank_code": account_data["bank_code"],
-                    "account_type": account_data["account_type"],
-                    "currency": account_data["currency"],
-                    "balance": account_data["balance"],
-                    "available_balance": account_data["available_balance"],
-                    "status": account_data["status"],
-                    "last_updated": datetime.utcnow(),
-                    "jopacc_account_data": account
-                }
-                
-                await linked_accounts_collection.update_one(
-                    {"_id": account["accountId"]},
-                    {"$set": account_doc},
-                    upsert=True
-                )
-        else:
-            # Handle real API response (when not in sandbox mode)
-            # This would need to be adapted based on actual JoPACC API response structure
-            pass
+            account_data = {
+                "account_id": account["accountId"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": float(account["balance"]["current"]),
+                "available_balance": float(account["balance"]["available"]),
+                "status": account["accountStatus"],
+                "last_updated": account["lastUpdated"]
+            }
+            accounts.append(account_data)
+            
+            # Store/update accounts in database
+            account_doc = {
+                "_id": account["accountId"],
+                "user_id": current_user["_id"],
+                "consent_id": consent["_id"] if consent else None,
+                "account_name": account_data["account_name"],
+                "account_number": account_data["account_number"],
+                "bank_name": account_data["bank_name"],
+                "bank_code": account_data["bank_code"],
+                "account_type": account_data["account_type"],
+                "currency": account_data["currency"],
+                "balance": account_data["balance"],
+                "available_balance": account_data["available_balance"],
+                "status": account_data["status"],
+                "last_updated": datetime.utcnow(),
+                "jopacc_account_data": account
+            }
+            
+            await linked_accounts_collection.update_one(
+                {"_id": account["accountId"]},
+                {"$set": account_doc},
+                upsert=True
+            )
         
         return {
             "accounts": accounts,
