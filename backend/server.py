@@ -52,9 +52,11 @@ accounts_collection = database.get_collection("accounts")
 linked_accounts_collection = database.get_collection("linked_accounts")
 consents_collection = database.get_collection("consents")
 payments_collection = database.get_collection("payments")
+chat_conversations_collection = database.get_collection("chat_conversations")
 
-# Initialize Jordan Open Finance service
+# Initialize services
 jof_service = JordanOpenFinanceService()
+hey_dinar_ai = HeyDinarAI()
 
 # Pydantic models
 class UserRegistration(BaseModel):
