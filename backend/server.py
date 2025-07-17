@@ -1569,6 +1569,335 @@ async def get_user_risk_profile(
             detail=f"Error fetching user risk profile: {str(e)}"
         )
 
+# Biometric Authentication API Endpoints
+
+@app.post("/api/biometric/enroll")
+async def enroll_biometric(
+    biometric_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Enroll user's biometric data"""
+    try:
+        biometric_type = BiometricType(biometric_data.get("biometric_type"))
+        data = biometric_data.get("data", "")
+        device_fingerprint = biometric_data.get("device_fingerprint", "")
+        
+        result = await biometric_service.enroll_biometric(
+            current_user["_id"],
+            biometric_type,
+            data,
+            device_fingerprint
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Biometric enrollment error: {str(e)}"
+        )
+
+@app.post("/api/biometric/authenticate")
+async def authenticate_biometric(
+    biometric_data: dict,
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Authenticate user using biometric data"""
+    try:
+        biometric_type = BiometricType(biometric_data.get("biometric_type"))
+        data = biometric_data.get("data", "")
+        device_fingerprint = biometric_data.get("device_fingerprint", "")
+        
+        # Get IP address and user agent
+        ip_address = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+        
+        result = await biometric_service.authenticate_biometric(
+            current_user["_id"],
+            biometric_type,
+            data,
+            device_fingerprint,
+            ip_address,
+            user_agent
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Biometric authentication error: {str(e)}"
+        )
+
+@app.get("/api/biometric/user/{user_id}")
+async def get_user_biometrics(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's enrolled biometrics"""
+    try:
+        # Check if user can access this data
+        if current_user["_id"] != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        result = await biometric_service.get_user_biometrics(user_id)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching biometrics: {str(e)}"
+        )
+
+@app.delete("/api/biometric/revoke/{template_id}")
+async def revoke_biometric(
+    template_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Revoke a biometric template"""
+    try:
+        result = await biometric_service.revoke_biometric(
+            current_user["_id"],
+            template_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error revoking biometric: {str(e)}"
+        )
+
+@app.get("/api/biometric/history")
+async def get_biometric_history(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's biometric authentication history"""
+    try:
+        result = await biometric_service.get_authentication_history(
+            current_user["_id"],
+            limit
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching history: {str(e)}"
+        )
+
+# Risk Scoring API Endpoints
+
+@app.get("/api/risk/assessment/{user_id}")
+async def get_risk_assessment(
+    user_id: str,
+    transaction_data: Optional[dict] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get comprehensive risk assessment for user"""
+    try:
+        # In production, check admin privileges
+        assessment = await risk_service.assess_comprehensive_risk(
+            user_id,
+            transaction_data
+        )
+        
+        return {
+            "assessment_id": assessment.assessment_id,
+            "risk_level": assessment.risk_level.value,
+            "risk_score": assessment.risk_score,
+            "credit_score": int(assessment.credit_score * 850),  # Convert back to credit score
+            "fraud_score": assessment.fraud_score,
+            "behavioral_score": assessment.behavioral_score,
+            "risk_factors": assessment.risk_factors,
+            "protective_factors": assessment.protective_factors,
+            "recommendations": assessment.recommendations,
+            "timestamp": assessment.timestamp
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk assessment error: {str(e)}"
+        )
+
+@app.get("/api/risk/history/{user_id}")
+async def get_risk_history(
+    user_id: str,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's risk assessment history"""
+    try:
+        history = await risk_service.get_user_risk_history(user_id, limit)
+        return {"history": history}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching risk history: {str(e)}"
+        )
+
+@app.get("/api/risk/dashboard")
+async def get_risk_dashboard(current_user: dict = Depends(get_current_user)):
+    """Get risk management dashboard"""
+    try:
+        # Get risk statistics
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$risk_level",
+                    "count": {"$sum": 1},
+                    "avg_score": {"$avg": "$risk_score"}
+                }
+            }
+        ]
+        
+        cursor = risk_service.risk_assessments_collection.aggregate(pipeline)
+        risk_stats = {}
+        
+        async for doc in cursor:
+            risk_stats[doc["_id"]] = {
+                "count": doc["count"],
+                "avg_score": doc["avg_score"]
+            }
+        
+        # Get recent assessments
+        recent_cursor = risk_service.risk_assessments_collection.find(
+            {}
+        ).sort("timestamp", -1).limit(10)
+        
+        recent_assessments = []
+        async for doc in recent_cursor:
+            recent_assessments.append({
+                "assessment_id": doc["assessment_id"],
+                "user_id": doc["user_id"],
+                "risk_level": doc["risk_level"],
+                "risk_score": doc["risk_score"],
+                "timestamp": doc["timestamp"]
+            })
+        
+        return {
+            "risk_statistics": risk_stats,
+            "recent_assessments": recent_assessments
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching risk dashboard: {str(e)}"
+        )
+
+# Security System Initialization
+
+@app.post("/api/security/initialize")
+async def initialize_security_systems(current_user: dict = Depends(get_current_user)):
+    """Initialize all security systems"""
+    try:
+        # Initialize AML system
+        await aml_monitor.initialize_system()
+        
+        # Initialize biometric system
+        await biometric_service.initialize_biometric_system()
+        
+        # Initialize risk scoring system
+        await risk_service.initialize_risk_system()
+        
+        return {
+            "message": "All security systems initialized successfully",
+            "systems": ["AML Monitor", "Biometric Authentication", "Risk Scoring"]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Security system initialization error: {str(e)}"
+        )
+
+@app.get("/api/security/status")
+async def get_security_status(current_user: dict = Depends(get_current_user)):
+    """Get security systems status"""
+    try:
+        # Check AML system
+        aml_dashboard = await aml_monitor.get_aml_dashboard()
+        
+        # Check biometric system
+        biometric_stats = await biometric_service.biometric_templates_collection.count_documents({})
+        
+        # Check risk system
+        risk_assessments = await risk_service.risk_assessments_collection.count_documents({})
+        
+        return {
+            "aml_system": {
+                "status": "active",
+                "total_alerts": aml_dashboard.get("total_alerts_7d", 0),
+                "model_version": aml_dashboard.get("model_version", "1.0")
+            },
+            "biometric_system": {
+                "status": "active",
+                "total_templates": biometric_stats
+            },
+            "risk_system": {
+                "status": "active",
+                "total_assessments": risk_assessments
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking security status: {str(e)}"
+        )
+
+# Enhanced Authentication with Risk Scoring
+
+@app.post("/api/auth/login-enhanced")
+async def enhanced_login(
+    login_data: UserLogin,
+    request: Request
+):
+    """Enhanced login with risk scoring and biometric support"""
+    try:
+        # First, perform standard authentication
+        user = await users_collection.find_one({"email": login_data.email})
+        if not user or not pwd_context.verify(login_data.password, user["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
+            )
+        
+        # Get risk assessment
+        risk_assessment = await risk_service.assess_comprehensive_risk(user["_id"])
+        
+        # Get user's biometrics
+        biometrics = await biometric_service.get_user_biometrics(user["_id"])
+        
+        # Generate token
+        access_token = create_access_token(data={"sub": user["email"]})
+        
+        # Determine if additional verification is needed
+        requires_additional_verification = (
+            risk_assessment.risk_level.value in ["high", "very_high"] or
+            risk_assessment.fraud_score > 0.7
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user["_id"],
+                "email": user["email"],
+                "full_name": user["full_name"]
+            },
+            "risk_assessment": {
+                "risk_level": risk_assessment.risk_level.value,
+                "risk_score": risk_assessment.risk_score,
+                "requires_additional_verification": requires_additional_verification
+            },
+            "biometric_options": [b["biometric_type"] for b in biometrics.get("biometrics", [])],
+            "security_recommendations": risk_assessment.recommendations
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Enhanced login error: {str(e)}"
+        )
+
 @app.post("/api/aml/initialize")
 async def initialize_aml_system(current_user: dict = Depends(get_current_user)):
     """Initialize AML monitoring system"""
