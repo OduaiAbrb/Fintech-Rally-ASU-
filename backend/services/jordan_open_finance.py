@@ -57,7 +57,7 @@ class JordanOpenFinanceService:
         access_token = await self.get_access_token()
         return {
             "Authorization": f"Bearer {access_token}",
-            "x-fapi-financial-id": self.x_fapi_financial_id,
+            "x-financial-id": self.x_financial_id,
             "x-fapi-customer-ip-address": "127.0.0.1",
             "x-fapi-interaction-id": str(uuid.uuid4()),
             "Content-Type": "application/json",
