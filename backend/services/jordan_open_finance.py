@@ -52,18 +52,21 @@ class JordanOpenFinanceService:
             response.raise_for_status()
             return response.json()["access_token"]
     
-    async def get_headers(self) -> Dict[str, str]:
-        """Get standard headers for JoPACC API requests"""
+    async def get_headers(self, customer_ip: str = "127.0.0.1") -> Dict[str, str]:
+        """Get standard headers for real JoPACC API requests based on portal documentation"""
         access_token = await self.get_access_token()
+        interaction_id = str(uuid.uuid4())
+        
         return {
             "Authorization": f"Bearer {access_token}",
             "x-financial-id": self.x_financial_id,
-            "x-fapi-customer-ip-address": "127.0.0.1",
-            "x-fapi-interaction-id": str(uuid.uuid4()),
+            "x-customer-ip-address": customer_ip,
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-interactions-id": interaction_id,
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-jws-signature": "",  # Would need proper JWS implementation for production
             "Content-Type": "application/json",
-            "Accept": "application/json",
-            "x-jws-signature": "",  # Would need proper JWS implementation
-            "x-idempotency-key": str(uuid.uuid4())
+            "Accept": "application/json"
         }
     
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
