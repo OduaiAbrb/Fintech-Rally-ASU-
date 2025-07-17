@@ -133,14 +133,20 @@ class LinkedAccount(BaseModel):
 class ChatMessageRequest(BaseModel):
     message: str
 
-class ChatResponse(BaseModel):
-    message_id: str
-    user_message: str
-    ai_response: str
-    intent: str
-    confidence: float
-    timestamp: datetime
-    quick_actions: List[Dict[str, str]]
+class TransferRequest(BaseModel):
+    from_account_id: str
+    to_account_id: str
+    amount: float
+    currency: str = "JOD"
+    description: Optional[str] = None
+
+class UserProfileResponse(BaseModel):
+    user_info: dict
+    wallet_balance: dict
+    linked_accounts: List[dict]
+    total_balance: float
+    fx_rates: dict
+    recent_transfers: List[dict]
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -983,15 +989,15 @@ async def chat_with_hey_dinar(
         # Get quick actions
         quick_actions = hey_dinar_ai.get_quick_actions()
         
-        return ChatResponse(
-            message_id=chat_message.id,
-            user_message=chat_message.message,
-            ai_response=chat_message.response,
-            intent=chat_message.intent,
-            confidence=chat_message.confidence,
-            timestamp=chat_message.timestamp,
-            quick_actions=quick_actions
-        )
+        return {
+            "message_id": chat_message.id,
+            "user_message": chat_message.message,
+            "ai_response": chat_message.response,
+            "intent": chat_message.intent,
+            "confidence": chat_message.confidence,
+            "timestamp": chat_message.timestamp,
+            "quick_actions": quick_actions
+        }
         
     except Exception as e:
         raise HTTPException(
@@ -1058,6 +1064,299 @@ async def clear_chat_history(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error clearing chat history: {str(e)}"
+        )
+
+# User Profile and Transfer API Endpoints
+
+@app.get("/api/user/profile")
+async def get_user_profile(current_user: dict = Depends(get_current_user)):
+    """Get comprehensive user profile with all financial data from real APIs"""
+    try:
+        # Get user basic info
+        user_info = {
+            "id": current_user["_id"],
+            "email": current_user["email"],
+            "full_name": current_user["full_name"],
+            "phone_number": current_user.get("phone_number"),
+            "created_at": current_user["created_at"],
+            "is_active": current_user["is_active"]
+        }
+        
+        # Get wallet balance
+        wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+        wallet_balance = {
+            "jd_balance": wallet.get("jd_balance", 0) if wallet else 0,
+            "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
+        }
+        
+        # Get linked accounts using real JoPACC API
+        linked_accounts = []
+        total_bank_balance = 0
+        
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if consent:
+            try:
+                # Use real JoPACC endpoint
+                accounts_response = await jof_service.get_accounts(limit=20)
+                
+                for account in accounts_response.get("accounts", []):
+                    # Get real-time balance for each account
+                    balance_response = await jof_service.get_account_balances(account["accountId"])
+                    
+                    # Extract available balance
+                    available_balance = 0
+                    current_balance = 0
+                    for balance in balance_response.get("balances", []):
+                        if balance["type"] == "available":
+                            available_balance = balance["amount"]
+                        elif balance["type"] == "current":
+                            current_balance = balance["amount"]
+                    
+                    account_data = {
+                        "account_id": account["accountId"],
+                        "account_name": account["accountName"],
+                        "account_number": account["accountNumber"],
+                        "bank_name": account["bankName"],
+                        "bank_code": account["bankCode"],
+                        "account_type": account["accountType"],
+                        "currency": account["currency"],
+                        "balance": current_balance,
+                        "available_balance": available_balance,
+                        "status": account["accountStatus"],
+                        "last_updated": account["lastUpdated"]
+                    }
+                    
+                    linked_accounts.append(account_data)
+                    total_bank_balance += current_balance
+                    
+            except Exception as e:
+                print(f"Error fetching accounts: {e}")
+        
+        # Get FX rates using real JoPACC API
+        fx_rates = {}
+        try:
+            fx_response = await jof_service.get_fx_rates()
+            for rate_info in fx_response.get("rates", []):
+                fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+        except Exception as e:
+            print(f"Error fetching FX rates: {e}")
+        
+        # Get recent transfers (from transactions collection)
+        recent_transfers = []
+        try:
+            cursor = transactions_collection.find({
+                "user_id": current_user["_id"],
+                "transaction_type": {"$in": ["transfer", "exchange", "deposit"]}
+            }).sort("created_at", -1).limit(10)
+            
+            async for transfer in cursor:
+                recent_transfers.append({
+                    "id": transfer["_id"],
+                    "type": transfer["transaction_type"],
+                    "amount": transfer["amount"],
+                    "currency": transfer["currency"],
+                    "status": transfer["status"],
+                    "description": transfer.get("description"),
+                    "created_at": transfer["created_at"]
+                })
+        except Exception as e:
+            print(f"Error fetching transfers: {e}")
+        
+        # Calculate total balance
+        total_balance = total_bank_balance + wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"]
+        
+        return {
+            "user_info": user_info,
+            "wallet_balance": wallet_balance,
+            "linked_accounts": linked_accounts,
+            "total_balance": total_balance,
+            "fx_rates": fx_rates,
+            "recent_transfers": recent_transfers,
+            "summary": {
+                "total_accounts": len(linked_accounts),
+                "total_bank_balance": total_bank_balance,
+                "wallet_total": wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"],
+                "last_updated": datetime.utcnow().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user profile: {str(e)}"
+        )
+
+@app.post("/api/user/transfer")
+async def create_transfer(
+    transfer_request: TransferRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create transfer from bank account to wallet or between accounts"""
+    try:
+        # Validate transfer request
+        if transfer_request.amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Transfer amount must be greater than 0"
+            )
+        
+        # Check if this is a transfer to wallet (indicated by special wallet account ID)
+        if transfer_request.to_account_id == "wallet_jd":
+            # Transfer from bank account to JD wallet
+            # First, verify the source account belongs to user
+            consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+            if not consent:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No banking consent found"
+                )
+            
+            # Get account details and verify balance
+            try:
+                balance_response = await jof_service.get_account_balances(transfer_request.from_account_id)
+                available_balance = 0
+                for balance in balance_response.get("balances", []):
+                    if balance["type"] == "available":
+                        available_balance = balance["amount"]
+                        break
+                
+                if available_balance < transfer_request.amount:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Insufficient balance in source account"
+                    )
+                
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Could not verify account balance"
+                )
+            
+            # Create transfer using JoPACC API (in real implementation)
+            # For now, we'll simulate the transfer
+            transfer_response = await jof_service.create_transfer(
+                from_account_id=transfer_request.from_account_id,
+                to_account_id="wallet_jd",
+                amount=transfer_request.amount,
+                currency=transfer_request.currency,
+                description=transfer_request.description or f"Transfer to JD Wallet"
+            )
+            
+            # Update wallet balance
+            wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
+            if not wallet:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Wallet not found"
+                )
+            
+            new_jd_balance = wallet["jd_balance"] + transfer_request.amount
+            await wallets_collection.update_one(
+                {"user_id": current_user["_id"]},
+                {
+                    "$set": {
+                        "jd_balance": new_jd_balance,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            # Create transaction record
+            transaction_id = str(uuid.uuid4())
+            transaction_doc = {
+                "_id": transaction_id,
+                "user_id": current_user["_id"],
+                "transaction_type": "transfer",
+                "amount": transfer_request.amount,
+                "currency": transfer_request.currency,
+                "from_account": transfer_request.from_account_id,
+                "to_account": "wallet_jd",
+                "status": "completed",
+                "description": transfer_request.description or f"Transfer to JD Wallet",
+                "jopacc_transfer_id": transfer_response.get("transferId"),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            await transactions_collection.insert_one(transaction_doc)
+            
+            return {
+                "transfer_id": transaction_id,
+                "jopacc_transfer_id": transfer_response.get("transferId"),
+                "status": "completed",
+                "amount": transfer_request.amount,
+                "currency": transfer_request.currency,
+                "from_account": transfer_request.from_account_id,
+                "to_account": "wallet_jd",
+                "new_wallet_balance": new_jd_balance,
+                "description": transfer_request.description,
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+        else:
+            # Transfer between bank accounts using JoPACC API
+            transfer_response = await jof_service.create_transfer(
+                from_account_id=transfer_request.from_account_id,
+                to_account_id=transfer_request.to_account_id,
+                amount=transfer_request.amount,
+                currency=transfer_request.currency,
+                description=transfer_request.description
+            )
+            
+            # Create transaction record
+            transaction_id = str(uuid.uuid4())
+            transaction_doc = {
+                "_id": transaction_id,
+                "user_id": current_user["_id"],
+                "transaction_type": "transfer",
+                "amount": transfer_request.amount,
+                "currency": transfer_request.currency,
+                "from_account": transfer_request.from_account_id,
+                "to_account": transfer_request.to_account_id,
+                "status": transfer_response.get("status", "pending"),
+                "description": transfer_request.description,
+                "jopacc_transfer_id": transfer_response.get("transferId"),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            await transactions_collection.insert_one(transaction_doc)
+            
+            return {
+                "transfer_id": transaction_id,
+                "jopacc_transfer_id": transfer_response.get("transferId"),
+                "status": transfer_response.get("status", "pending"),
+                "amount": transfer_request.amount,
+                "currency": transfer_request.currency,
+                "from_account": transfer_request.from_account_id,
+                "to_account": transfer_request.to_account_id,
+                "description": transfer_request.description,
+                "estimated_completion": transfer_response.get("estimatedCompletion"),
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating transfer: {str(e)}"
+        )
+
+@app.get("/api/user/fx-quote")
+async def get_fx_quote(
+    target_currency: str,
+    amount: float = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get FX quote for currency conversion using real JoPACC API"""
+    try:
+        quote_response = await jof_service.get_fx_quote(target_currency, amount)
+        return quote_response
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching FX quote: {str(e)}"
         )
 
 if __name__ == "__main__":

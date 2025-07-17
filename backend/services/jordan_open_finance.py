@@ -18,11 +18,11 @@ class JordanOpenFinanceService:
     def __init__(self):
         # Production JoPACC API Configuration
         self.base_url = os.getenv("JORDAN_OPEN_FINANCE_BASE_URL", "https://api.jopacc.com")
-        self.sandbox_url = os.getenv("JORDAN_OPEN_FINANCE_SANDBOX_URL", "https://jpcjofsdev.devportal-az-eu.webmethods.io")
+        self.sandbox_url = os.getenv("JORDAN_OPEN_FINANCE_SANDBOX_URL", "https://jpcjofsdev-apigw-az-eu.webmethods.io")
         self.client_id = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_ID")
         self.client_secret = os.getenv("JORDAN_OPEN_FINANCE_CLIENT_SECRET")
         self.api_key = os.getenv("JORDAN_OPEN_FINANCE_API_KEY")
-        self.x_fapi_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
+        self.x_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
         self.timeout = 30
         
         # Set sandbox mode to false for production deployment
@@ -52,19 +52,185 @@ class JordanOpenFinanceService:
             response.raise_for_status()
             return response.json()["access_token"]
     
-    async def get_headers(self) -> Dict[str, str]:
-        """Get standard headers for JoPACC API requests"""
+    async def get_headers(self, customer_ip: str = "127.0.0.1") -> Dict[str, str]:
+        """Get standard headers for real JoPACC API requests based on portal documentation"""
         access_token = await self.get_access_token()
+        interaction_id = str(uuid.uuid4())
+        
         return {
             "Authorization": f"Bearer {access_token}",
-            "x-fapi-financial-id": self.x_fapi_financial_id,
-            "x-fapi-customer-ip-address": "127.0.0.1",
-            "x-fapi-interaction-id": str(uuid.uuid4()),
+            "x-financial-id": self.x_financial_id,
+            "x-customer-ip-address": customer_ip,
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-interactions-id": interaction_id,
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-jws-signature": "",  # Would need proper JWS implementation for production
             "Content-Type": "application/json",
-            "Accept": "application/json",
-            "x-jws-signature": "",  # Would need proper JWS implementation
-            "x-idempotency-key": str(uuid.uuid4())
+            "Accept": "application/json"
         }
+    
+    # Real API Endpoints based on the portal documentation
+    
+    async def get_accounts(self, skip: int = 0, account_type: str = None, limit: int = 10, 
+                          account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
+        """Get user accounts using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            # Mock data that follows the real API structure
+            return {
+                "accounts": [
+                    {
+                        "accountId": "acc_001_jordan_bank",
+                        "accountType": "current",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Jordan Bank Current Account",
+                        "accountNumber": "1234567890",
+                        "bankName": "Jordan Bank",
+                        "bankCode": "JBANKJOA",
+                        "balance": {
+                            "available": 2500.75,
+                            "current": 2600.75,
+                            "limit": 5000.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "accountId": "acc_002_arab_bank",
+                        "accountType": "savings",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Arab Bank Savings Account",
+                        "accountNumber": "9876543210",
+                        "bankName": "Arab Bank",
+                        "bankCode": "ARABJOAM",
+                        "balance": {
+                            "available": 15000.00,
+                            "current": 15000.00,
+                            "limit": 0.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "accountId": "acc_003_housing_bank",
+                        "accountType": "business",
+                        "accountStatus": "active",
+                        "currency": "JOD",
+                        "accountName": "Housing Bank Business Account",
+                        "accountNumber": "5555666677",
+                        "bankName": "Housing Bank",
+                        "bankCode": "HBANKJOA",
+                        "balance": {
+                            "available": 8750.50,
+                            "current": 8850.50,
+                            "limit": 10000.00
+                        },
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    }
+                ],
+                "totalCount": 3,
+                "hasMore": False
+            }
+        
+        headers = await self.get_headers()
+        params = {
+            "skip": skip,
+            "limit": limit,
+            "sort": sort
+        }
+        
+        if account_type:
+            params["accountType"] = account_type
+        if account_status:
+            params["accountStatus"] = account_status
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Accounts/v1.3/accounts",
+                headers=headers,
+                params=params
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def get_account_balances(self, account_id: str, customer_ip: str = "127.0.0.1") -> Dict[str, Any]:
+        """Get account balances using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            # Mock balance data based on account_id
+            mock_balances = {
+                "acc_001_jordan_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 2500.75,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 2600.75,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                },
+                "acc_002_arab_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 15000.00,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 15000.00,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                },
+                "acc_003_housing_bank": {
+                    "accountId": account_id,
+                    "balances": [
+                        {
+                            "type": "available",
+                            "amount": 8750.50,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        },
+                        {
+                            "type": "current",
+                            "amount": 8850.50,
+                            "currency": "JOD",
+                            "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                        }
+                    ]
+                }
+            }
+            
+            return mock_balances.get(account_id, {
+                "accountId": account_id,
+                "balances": [
+                    {
+                        "type": "available",
+                        "amount": 0.00,
+                        "currency": "JOD",
+                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
+                    }
+                ]
+            })
+        
+        headers = await self.get_headers(customer_ip)
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Balances/v1.3/accounts/{account_id}/balances",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
     
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
     async def create_account_access_consent(self, permissions: List[str], user_id: str) -> Dict[str, Any]:
@@ -440,32 +606,147 @@ class JordanOpenFinanceService:
             response.raise_for_status()
             return response.json()
     
+    async def get_fx_rates(self) -> Dict[str, Any]:
+        """Get FX rates using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            return {
+                "baseCurrency": "JOD",
+                "rates": [
+                    {
+                        "targetCurrency": "USD",
+                        "rate": 1.41,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "EUR",
+                        "rate": 1.29,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "GBP",
+                        "rate": 1.13,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    },
+                    {
+                        "targetCurrency": "SAR",
+                        "rate": 5.28,
+                        "rateType": "spot",
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    }
+                ],
+                "lastUpdated": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
+        """Get FX quote using real JoPACC endpoint"""
+        if self.sandbox_mode:
+            rates = {
+                "USD": 1.41,
+                "EUR": 1.29,
+                "GBP": 1.13,
+                "SAR": 5.28,
+                "STABLECOIN": 1.0  # 1:1 for our stablecoin
+            }
+            
+            rate = rates.get(target_currency, 1.0)
+            converted_amount = amount * rate if amount else None
+            
+            return {
+                "quoteId": str(uuid.uuid4()),
+                "baseCurrency": "JOD",
+                "targetCurrency": target_currency,
+                "rate": rate,
+                "amount": amount,
+                "convertedAmount": converted_amount,
+                "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        params = {}
+        if amount:
+            params["amount"] = amount
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs/{target_currency}",
+                headers=headers,
+                params=params
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
+                            currency: str = "JOD", description: str = None) -> Dict[str, Any]:
+        """Create transfer between accounts or to wallet"""
+        if self.sandbox_mode:
+            transfer_id = f"txn_{str(uuid.uuid4())[:8]}"
+            return {
+                "transferId": transfer_id,
+                "status": "completed",
+                "fromAccount": from_account_id,
+                "toAccount": to_account_id,
+                "amount": amount,
+                "currency": currency,
+                "description": description or f"Transfer {amount} {currency}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "estimatedCompletion": datetime.utcnow().isoformat() + "Z"
+            }
+        
+        headers = await self.get_headers()
+        transfer_data = {
+            "fromAccount": from_account_id,
+            "toAccount": to_account_id,
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "transferType": "internal"
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.api_base}/gateway/Payments/v1.3/transfers",
+                headers=headers,
+                json=transfer_data
+            )
+            response.raise_for_status()
+            return response.json()
+    
     # Legacy methods for backward compatibility
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
-        accounts_response = await self.get_accounts(user_consent_id)
+        accounts_response = await self.get_accounts()
         
-        if self.sandbox_mode:
-            # Convert new format to legacy format
-            accounts = []
-            for account in accounts_response["Data"]["Account"]:
-                accounts.append({
-                    "account_id": account["AccountId"],
-                    "account_name": account["Nickname"],
-                    "account_number": account["Account"][0]["Identification"],
-                    "bank_name": account["Account"][0]["Name"].split(" - ")[0],
-                    "bank_code": account["Servicer"]["Identification"],
-                    "account_type": account["AccountSubType"].lower(),
-                    "currency": account["Currency"],
-                    "balance": 2500.75 if "001" in account["AccountId"] else 15000.00 if "002" in account["AccountId"] else 8750.50,
-                    "available_balance": 2400.75 if "001" in account["AccountId"] else 15000.00 if "002" in account["AccountId"] else 8500.50,
-                    "status": "active",
-                    "last_updated": datetime.utcnow().isoformat()
-                })
-            return accounts
-        
-        # Production conversion would be more complex
-        return []
+        # Convert new format to legacy format
+        accounts = []
+        for account in accounts_response["accounts"]:
+            accounts.append({
+                "account_id": account["accountId"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": account["balance"]["current"],
+                "available_balance": account["balance"]["available"],
+                "status": "active",
+                "last_updated": account["lastUpdated"]
+            })
+        return accounts
     
     async def request_user_consent(self, user_id: str, permissions: List[str]) -> Dict[str, Any]:
         """Legacy method - creates account access consent"""
@@ -483,6 +764,40 @@ class JordanOpenFinanceService:
             }
         
         return consent_response
+    
+    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
+        """Legacy method for exchange rates"""
+        fx_data = await self.get_fx_rates()
+        
+        if self.sandbox_mode:
+            rates = {}
+            for rate_info in fx_data["rates"]:
+                rates[rate_info["targetCurrency"]] = rate_info["rate"]
+            
+            return {
+                "base_currency": fx_data["baseCurrency"],
+                "rates": rates,
+                "last_updated": fx_data["lastUpdated"]
+            }
+        
+        return fx_data
+    
+    async def convert_currency(self, from_currency: str, to_currency: str, amount: float) -> Dict[str, Any]:
+        """Legacy method for currency conversion"""
+        if from_currency != "JOD":
+            # For now, we only support JOD as base currency
+            raise ValueError("Only JOD base currency is supported")
+        
+        quote = await self.get_fx_quote(to_currency, amount)
+        
+        return {
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "original_amount": amount,
+            "converted_amount": quote.get("convertedAmount", amount),
+            "exchange_rate": quote.get("rate", 1.0),
+            "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
+        }
         
     # PIS (Payment Initiation Services)
     async def initiate_payment(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
