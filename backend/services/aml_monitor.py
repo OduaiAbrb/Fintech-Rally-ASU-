@@ -204,7 +204,7 @@ class AMLMLModel:
                 'version': self.model_version,
                 'performance_metrics': self.performance_metrics
             }
-            joblib.save(model_data, self.model_path)
+            joblib.dump(model_data, self.model_path)
             logger.info(f"AML model saved successfully - version {self.model_version}")
         except Exception as e:
             logger.error(f"Could not save model: {e}")
