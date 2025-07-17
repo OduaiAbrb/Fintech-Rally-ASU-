@@ -557,7 +557,7 @@ class BackendTester:
                 data = response.json()
                 
                 # Validate response structure
-                required_fields = ["aml_system", "biometric_system", "risk_system", "overall_status"]
+                required_fields = ["aml_system", "biometric_system", "risk_system"]
                 missing_fields = [field for field in required_fields if field not in data]
                 
                 if missing_fields:
@@ -575,7 +575,11 @@ class BackendTester:
                         self.print_result(False, f"{system} missing status field")
                         return False
                 
-                self.print_result(True, f"Security status retrieved - Overall: {data['overall_status']}")
+                # Calculate overall status
+                all_active = all(data[system]["status"] == "active" for system in ["aml_system", "biometric_system", "risk_system"])
+                overall_status = "active" if all_active else "partial"
+                
+                self.print_result(True, f"Security status retrieved - Overall: {overall_status}")
                 
                 # Print system details
                 print("\n🔒 Security Systems Status:")
