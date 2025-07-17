@@ -147,7 +147,13 @@ const UserProfilePage = () => {
           <div className="text-center py-8">
             <div className="text-gray-400 text-4xl mb-4">🏦</div>
             <p className="text-gray-500">No bank accounts linked</p>
-            <p className="text-sm text-gray-400">Connect your accounts to start transferring</p>
+            <p className="text-sm text-gray-400 mb-4">Connect your accounts to start transferring</p>
+            <button
+              onClick={() => window.location.href = '/open-banking'}
+              className="btn-primary"
+            >
+              Connect Bank Accounts
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -6,6 +6,9 @@ export const openBankingService = {
   requestConsent: (permissions) => 
     api.post('/open-banking/consent', { permissions }),
   
+  connectBankAccounts: () => 
+    api.post('/open-banking/connect-accounts'),
+  
   // Account Information Services (AIS)
   getLinkedAccounts: () => 
     api.get('/open-banking/accounts'),
