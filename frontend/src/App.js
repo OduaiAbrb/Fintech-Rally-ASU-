@@ -135,6 +135,26 @@ function App() {
                 </div>
               </ProtectedRoute>
             } />
+            <Route path="/offers" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <OffersPage />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/micro-loans" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <MicroLoansPage />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </div>
