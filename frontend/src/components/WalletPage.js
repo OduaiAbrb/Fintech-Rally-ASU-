@@ -411,7 +411,7 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
           
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-sm text-gray-600">
-              Exchange Rate: 1 JD = 1 Stablecoin
+              Exchange Rate: 1 JD = 1 DinarX
             </p>
             {amount && (
               <p className="text-sm font-medium text-gray-900 mt-1">
