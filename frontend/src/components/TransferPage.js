@@ -209,7 +209,7 @@ const TransferPage = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="JOD">JOD (Jordanian Dinar)</option>
-                <option value="STABLECOIN">STABLECOIN</option>
+                <option value="DINARX">DinarX</option>
               </select>
             </div>
           </div>

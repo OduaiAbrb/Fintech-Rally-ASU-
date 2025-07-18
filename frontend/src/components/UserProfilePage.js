@@ -116,7 +116,7 @@ const UserProfilePage = () => {
             {formatCurrency(profileData?.wallet_balance?.jd_balance || 0, 'JD')}
           </p>
           <p className="text-green-100 text-sm mt-2">
-            + {formatCurrency(profileData?.wallet_balance?.stablecoin_balance || 0, 'STABLECOIN')}
+            + {formatCurrency(profileData?.wallet_balance?.dinarx_balance || 0, 'DINARX')}
           </p>
         </div>
 
@@ -319,7 +319,7 @@ const TransferModal = ({ accounts, selectedAccount, onClose, onSuccess, setTrans
 
   const fetchFXQuote = async () => {
     try {
-      const response = await userProfileService.getFXQuote('STABLECOIN', parseFloat(formData.amount));
+      const response = await userProfileService.getFXQuote('DINARX', parseFloat(formData.amount));
       setFxQuote(response.data);
     } catch (err) {
       console.error('FX Quote error:', err);
