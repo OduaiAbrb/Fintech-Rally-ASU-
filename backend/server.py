@@ -348,19 +348,20 @@ async def exchange_currency(
                 detail="Insufficient JD balance"
             )
     else:
-        if wallet["dinarx_balance"] < exchange_request.amount:
+        current_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
+        if current_dinarx_balance < exchange_request.amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient stablecoin balance"
+                detail="Insufficient DinarX balance"
             )
     
     # Perform exchange
     if exchange_request.from_currency == "JD":
         new_jd_balance = wallet["jd_balance"] - exchange_request.amount
-        new_dinarx_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
+        new_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)) + (exchange_request.amount * exchange_rate)
     else:
         new_jd_balance = wallet["jd_balance"] + (exchange_request.amount * exchange_rate)
-        new_dinarx_balance = wallet["dinarx_balance"] - exchange_request.amount
+        new_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)) - exchange_request.amount
     
     # Update wallet
     await wallets_collection.update_one(
