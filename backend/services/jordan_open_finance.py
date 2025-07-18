@@ -213,10 +213,10 @@ class JordanOpenFinanceService:
             account_exists = False
             account_currency = "JOD"  # Default
             
-            for account in accounts_response.get("accounts", []):
+            for account in accounts_response.get("data", []):
                 if account.get("accountId") == account_id:
                     account_exists = True
-                    account_currency = account.get("currency", "JOD")
+                    account_currency = account.get("accountCurrency", "JOD")
                     break
             
             if not account_exists:
