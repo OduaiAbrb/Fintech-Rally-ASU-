@@ -26,6 +26,7 @@ class JordanOpenFinanceService:
         self.x_financial_id = os.getenv("JOPACC_FINANCIAL_ID", "001")
         self.timeout = 30
         
+    
         # Always use real API endpoints - no sandbox mode
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
         self.sandbox_mode = False  # Permanently disabled - only real API calls
@@ -595,6 +596,42 @@ class JordanOpenFinanceService:
             })
         return accounts
     
+
+
+    async def request_user_consent(self, user_id: str, permissions: List[str]) -> Dict[str, Any]:
+        """Legacy method - creates account access consent"""
+        consent_response = await self.create_account_access_consent(permissions, user_id)
+        
+        if self.sandbox_mode:
+            return {
+                "consent_id": consent_response["Data"]["ConsentId"],
+                "user_id": user_id,
+                "permissions": permissions,
+                "status": "granted",
+                "consent_url": f"https://sandbox.jopacc.com/consent/{consent_response["Data"]["ConsentId"]}",
+                "expires_at": consent_response["Data"]["ExpirationDateTime"],
+                "created_at": consent_response["Data"]["CreationDateTime"]
+            }
+        
+        return consent_response
+    
+    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
+        """Legacy method for exchange rates"""
+        fx_data = await self.get_fx_rates()
+        
+        if self.sandbox_mode:
+            rates = {}
+            for rate_info in fx_data["rates"]:
+                rates[rate_info["targetCurrency"]] = rate_info["rate"]
+            
+            return {
+                "base_currency": fx_data["baseCurrency"],
+                "rates": rates,
+                "last_updated": fx_data["lastUpdated"]
+            }
+        
+        return fx_data
+    
     async def convert_currency(self, from_currency: str, to_currency: str, amount: float) -> Dict[str, Any]:
         """Legacy method for currency conversion"""
         if from_currency != "JOD":
@@ -610,4 +647,29 @@ class JordanOpenFinanceService:
             "converted_amount": quote.get("convertedAmount", amount),
             "exchange_rate": quote.get("rate", 1.0),
             "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
+
         }
+
+        
+        
+
+    
+    async def get_consent_status(self, consent_id: str) -> Dict[str, Any]:
+        """Get consent status"""
+        if self.sandbox_mode:
+            return {
+                "consent_id": consent_id,
+                "status": "granted",
+                "permissions": ["ais", "pis", "fps", "fx"],
+                "expires_at": (datetime.utcnow() + timedelta(days=90)).isoformat()
+            }
+        
+        headers = await self.get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/consent/v1/status/{consent_id}",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+
