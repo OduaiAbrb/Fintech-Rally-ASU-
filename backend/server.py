@@ -88,7 +88,7 @@ class WalletBalance(BaseModel):
     id: str
     user_id: str
     jd_balance: float = 0.0
-    stablecoin_balance: float = 0.0
+    dinarx_balance: float = 0.0
     created_at: datetime
     updated_at: datetime
 
