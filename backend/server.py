@@ -65,6 +65,41 @@ aml_monitor = AMLMonitor(MONGO_URL)
 biometric_service = BiometricAuthenticationService(MONGO_URL)
 risk_service = RiskScoringService(MONGO_URL)
 
+# Database migration function
+async def migrate_wallet_fields():
+    """Migrate wallet documents from stablecoin_balance to dinarx_balance"""
+    try:
+        # Find all wallets that have stablecoin_balance but not dinarx_balance
+        wallets_to_migrate = await wallets_collection.find({
+            "stablecoin_balance": {"$exists": True},
+            "dinarx_balance": {"$exists": False}
+        }).to_list(length=None)
+        
+        for wallet in wallets_to_migrate:
+            # Update the wallet to use dinarx_balance instead of stablecoin_balance
+            await wallets_collection.update_one(
+                {"_id": wallet["_id"]},
+                {
+                    "$set": {
+                        "dinarx_balance": wallet.get("stablecoin_balance", 0),
+                        "updated_at": datetime.utcnow()
+                    },
+                    "$unset": {
+                        "stablecoin_balance": ""
+                    }
+                }
+            )
+        
+        print(f"Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
+        
+    except Exception as e:
+        print(f"Error during wallet migration: {e}")
+
+# Run migration on startup
+@app.on_event("startup")
+async def startup_event():
+    await migrate_wallet_fields()
+
 # Pydantic models
 class UserRegistration(BaseModel):
     email: str
@@ -312,7 +347,7 @@ async def get_wallet_balance(current_user: dict = Depends(get_current_user)):
         "id": wallet["_id"],
         "user_id": wallet["user_id"],
         "jd_balance": wallet["jd_balance"],
-        "dinarx_balance": wallet["dinarx_balance"],
+        "dinarx_balance": wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)),
         "created_at": wallet["created_at"],
         "updated_at": wallet["updated_at"]
     }
@@ -348,19 +383,20 @@ async def exchange_currency(
                 detail="Insufficient JD balance"
             )
     else:
-        if wallet["dinarx_balance"] < exchange_request.amount:
+        current_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
+        if current_dinarx_balance < exchange_request.amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient stablecoin balance"
+                detail="Insufficient DinarX balance"
             )
     
     # Perform exchange
     if exchange_request.from_currency == "JD":
         new_jd_balance = wallet["jd_balance"] - exchange_request.amount
-        new_dinarx_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
+        new_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)) + (exchange_request.amount * exchange_rate)
     else:
         new_jd_balance = wallet["jd_balance"] + (exchange_request.amount * exchange_rate)
-        new_dinarx_balance = wallet["dinarx_balance"] - exchange_request.amount
+        new_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)) - exchange_request.amount
     
     # Update wallet
     await wallets_collection.update_one(
@@ -468,7 +504,8 @@ async def deposit_funds(
             }
         )
     else:
-        new_balance = wallet["dinarx_balance"] + transaction_request.amount
+        current_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
+        new_balance = current_dinarx_balance + transaction_request.amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
             {
@@ -1077,7 +1114,7 @@ async def chat_with_hey_dinar(
         if wallet:
             context_data["wallet_balance"] = {
                 "jd_balance": wallet.get("jd_balance", 0),
-                "dinarx_balance": wallet.get("dinarx_balance", 0)
+                "dinarx_balance": wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
             }
         
         # Get open banking data
@@ -1243,7 +1280,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
         wallet_balance = {
             "jd_balance": wallet.get("jd_balance", 0) if wallet else 0,
-            "dinarx_balance": wallet.get("dinarx_balance", 0) if wallet else 0
+            "dinarx_balance": wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)) if wallet else 0
         }
         
         # Get linked accounts using real JoPACC API with account-dependent flow - only real API calls
@@ -2119,7 +2156,7 @@ async def create_user_transfer(
             )
         
         # Check if sender has sufficient balance
-        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("dinarx_balance", 0)
+        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("dinarx_balance", sender_wallet.get("stablecoin_balance", 0))
         if sender_balance < amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
