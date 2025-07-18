@@ -1425,12 +1425,19 @@ async def create_transfer(
 async def get_fx_quote(
     target_currency: str,
     amount: float = None,
+    account_id: str = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get FX quote for currency conversion using real JoPACC API"""
+    """Get FX quote for currency conversion - optionally account-dependent"""
     try:
-        quote_response = await jof_service.get_fx_quote(target_currency, amount)
-        return quote_response
+        if account_id:
+            # Use account-dependent FX quote
+            quote_response = await jof_service.get_fx_quote_for_account(account_id, target_currency, amount)
+            return quote_response
+        else:
+            # Use general FX quote
+            quote_response = await jof_service.get_fx_quote(target_currency, amount)
+            return quote_response
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
