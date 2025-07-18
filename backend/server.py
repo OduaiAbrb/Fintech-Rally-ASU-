@@ -604,7 +604,7 @@ async def connect_accounts(current_user: dict = Depends(get_current_user)):
 
 @app.get("/api/open-banking/accounts")
 async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
-    """Get user's linked bank accounts using JoPACC AIS standards"""
+    """Get user's linked bank accounts using JoPACC AIS standards with account-dependent flow"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -614,13 +614,20 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 detail="No banking consent found. Please link your bank accounts first."
             )
         
-        # Get accounts from Jordan Open Finance using JoPACC standards
-        accounts_response = await jof_service.get_accounts_new()
+        # Get accounts with balances using the new dependent flow - only real API calls
+        try:
+            accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+        except Exception as api_error:
+            # Return detailed error information instead of mock data
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"JoPACC API unavailable: {str(api_error)}"
+            )
         
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
         
-        # Process accounts from either real API or fallback mock data
+        # Process accounts from real API response
         for account in accounts_response.get("accounts", []):
             account_data = {
                 "account_id": account["accountId"],
@@ -633,24 +640,27 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 "balance": float(account["balance"]["current"]),
                 "available_balance": float(account["balance"]["available"]),
                 "status": account["accountStatus"],
-                "last_updated": account["lastUpdated"]
+                "last_updated": account["lastUpdated"],
+                # Add detailed balance information if available
+                "detailed_balances": account.get("detailed_balances", []),
+                "balance_last_updated": account.get("balance_last_updated")
             }
+            
             accounts.append(account_data)
             
-            # Store/update accounts in database
+            # Store/update account in database
             account_doc = {
                 "_id": account["accountId"],
                 "user_id": current_user["_id"],
-                "consent_id": consent["_id"] if consent else None,
-                "account_name": account_data["account_name"],
-                "account_number": account_data["account_number"],
-                "bank_name": account_data["bank_name"],
-                "bank_code": account_data["bank_code"],
-                "account_type": account_data["account_type"],
-                "currency": account_data["currency"],
-                "balance": account_data["balance"],
-                "available_balance": account_data["available_balance"],
-                "status": account_data["status"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": float(account["balance"]["current"]),
+                "available_balance": float(account["balance"]["available"]),
+                "status": account["accountStatus"],
                 "last_updated": datetime.utcnow(),
                 "jopacc_account_data": account
             }
@@ -663,8 +673,13 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         return {
             "accounts": accounts,
-            "total": len(accounts)
+            "total": len(accounts),
+            "dependency_flow": "accounts_with_balances",
+            "api_call_sequence": "1. get_accounts_new (with x-customer-id), 2. get_account_balances (without x-customer-id) for each account",
+            "data_source": "real_api_only"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -676,7 +691,7 @@ async def get_account_balance(
     account_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get specific account balance"""
+    """Get specific account balance - depends on account_id from accounts API"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -697,7 +712,23 @@ async def get_account_balance(
                 detail="Account not found or not linked to your profile"
             )
         
-        balance = await jof_service.get_account_balance(account_id, consent["_id"])
+        # Use the new account-dependent balance API (without x-customer-id)
+        balance_response = await jof_service.get_account_balances(account_id)
+        
+        # Convert to legacy format for frontend compatibility
+        balance = {
+            "account_id": account_id,
+            "balance": balance_response.get("balances", [{}])[0].get("amount", 0.0),
+            "available_balance": balance_response.get("balances", [{}])[0].get("amount", 0.0),
+            "currency": balance_response.get("balances", [{}])[0].get("currency", "JOD"),
+            "last_updated": balance_response.get("balances", [{}])[0].get("lastUpdated", datetime.utcnow().isoformat() + "Z"),
+            "detailed_balances": balance_response.get("balances", []),
+            "api_call_info": {
+                "method": "get_account_balances",
+                "includes_x_customer_id": False,
+                "depends_on_account_id": True
+            }
+        }
         
         # Update stored balance
         await linked_accounts_collection.update_one(
@@ -855,13 +886,20 @@ async def get_payment_status(
 
 @app.get("/api/open-banking/fx/rates")
 async def get_exchange_rates(
+    account_id: str = None,
     base_currency: str = "JOD",
     current_user: dict = Depends(get_current_user)
 ):
-    """Get current exchange rates"""
+    """Get current exchange rates - optionally account-dependent"""
     try:
-        rates = await jof_service.get_exchange_rates(base_currency)
-        return rates
+        if account_id:
+            # Use account-dependent FX rates
+            rates_response = await jof_service.get_fx_rates_for_account(account_id)
+            return rates_response
+        else:
+            # Use general FX rates
+            rates = await jof_service.get_exchange_rates(base_currency)
+            return rates
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1151,15 +1189,15 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
         }
         
-        # Get linked accounts using real JoPACC API
+        # Get linked accounts using real JoPACC API with account-dependent flow - only real API calls
         linked_accounts = []
         total_bank_balance = 0
         
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
         if consent:
             try:
-                # Use real JoPACC endpoint with the new method
-                accounts_response = await jof_service.get_accounts_new(limit=20)
+                # Use the new account-dependent method that gets accounts and balances together
+                accounts_response = await jof_service.get_accounts_with_balances(limit=20)
                 
                 for account in accounts_response.get("accounts", []):
                     account_data = {
@@ -1173,23 +1211,43 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                         "balance": float(account["balance"]["current"]),
                         "available_balance": float(account["balance"]["available"]),
                         "status": account["accountStatus"],
-                        "last_updated": account["lastUpdated"]
+                        "last_updated": account["lastUpdated"],
+                        "detailed_balances": account.get("detailed_balances", []),
+                        "balance_last_updated": account.get("balance_last_updated")
                     }
                     
                     linked_accounts.append(account_data)
                     total_bank_balance += account_data["balance"]
                     
             except Exception as e:
-                print(f"Error fetching accounts: {e}")
+                print(f"Error fetching accounts (no fallback): {e}")
+                # Set accounts info to indicate API failure
+                linked_accounts = []
+                total_bank_balance = 0
         
-        # Get FX rates using real JoPACC API
+        # Get FX rates using real JoPACC API (account-dependent if we have linked accounts) - only real API calls
         fx_rates = {}
         try:
-            fx_response = await jof_service.get_fx_rates()
-            for rate_info in fx_response.get("rates", []):
-                fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+            if linked_accounts:
+                # Use account-dependent FX rates for the first account
+                first_account_id = linked_accounts[0]["account_id"]
+                fx_response = await jof_service.get_fx_rates_for_account(first_account_id)
+                for rate_info in fx_response.get("rates_for_account", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                # Add account context to FX rates
+                fx_rates["account_context"] = {
+                    "account_id": first_account_id,
+                    "account_currency": fx_response.get("account_currency", "JOD")
+                }
+            else:
+                # Use general FX rates
+                fx_response = await jof_service.get_fx_rates()
+                for rate_info in fx_response.get("rates", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
         except Exception as e:
-            print(f"Error fetching FX rates: {e}")
+            print(f"Error fetching FX rates (no fallback): {e}")
+            # Set FX rates to empty to indicate API failure
+            fx_rates = {}
         
         # Get recent transfers (from transactions collection)
         recent_transfers = []
@@ -1397,16 +1455,23 @@ async def create_transfer(
 async def get_fx_quote(
     target_currency: str,
     amount: float = None,
+    account_id: str = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get FX quote for currency conversion using real JoPACC API"""
+    """Get FX quote for currency conversion - optionally account-dependent - only real API calls"""
     try:
-        quote_response = await jof_service.get_fx_quote(target_currency, amount)
-        return quote_response
+        if account_id:
+            # Use account-dependent FX quote
+            quote_response = await jof_service.get_fx_quote_for_account(account_id, target_currency, amount)
+            return quote_response
+        else:
+            # Use general FX quote
+            quote_response = await jof_service.get_fx_quote(target_currency, amount)
+            return quote_response
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching FX quote: {str(e)}"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"JoPACC FX API unavailable: {str(e)}"
         )
 
 # AML Monitoring API Endpoints
