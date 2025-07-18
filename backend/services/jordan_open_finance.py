@@ -53,18 +53,19 @@ class JordanOpenFinanceService:
             return response.json()["access_token"]
     
     async def get_headers(self, customer_ip: str = "127.0.0.1") -> Dict[str, str]:
-        """Get standard headers for real JoPACC API requests based on portal documentation"""
-        access_token = await self.get_access_token()
+        """Get standard headers for real JoPACC API requests - Direct token authentication"""
         interaction_id = str(uuid.uuid4())
         
         return {
-            "Authorization": f"Bearer {access_token}",
-            "x-financial-id": self.x_financial_id,
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-customer-ip-address": customer_ip,
             "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
             "x-interactions-id": interaction_id,
             "x-idempotency-key": str(uuid.uuid4()),
-            "x-jws-signature": "",  # Would need proper JWS implementation for production
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123"),
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
