@@ -1458,7 +1458,7 @@ async def get_fx_quote(
     account_id: str = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get FX quote for currency conversion - optionally account-dependent"""
+    """Get FX quote for currency conversion - optionally account-dependent - only real API calls"""
     try:
         if account_id:
             # Use account-dependent FX quote
@@ -1470,8 +1470,8 @@ async def get_fx_quote(
             return quote_response
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching FX quote: {str(e)}"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"JoPACC FX API unavailable: {str(e)}"
         )
 
 # AML Monitoring API Endpoints
