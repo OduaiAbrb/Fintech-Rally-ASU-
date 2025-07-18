@@ -15,6 +15,18 @@ frontend:
           comment: "✅ SECURITY DASHBOARD FULLY FUNCTIONAL - Comprehensive testing confirms complete success after fixing biometric API issue. Fixed getUserBiometrics API call path from '/user/profile' to '/user/profile' with correct data structure access. Testing Results: ✅ Navigation & Access (Security route loads without errors, navbar Security link working), ✅ Live API Data Integration (All 8 security API calls successful: /api/security/status, /api/aml/dashboard, /api/risk/dashboard, /api/biometric/user), ✅ Real Backend Data Display (AML system status: active, AML alerts: 3 recent alerts with real risk levels, Risk scoring: 6 low + 1 very low + 1 medium assessments with actual ML scores, Biometric: correct empty state), ✅ Tab Navigation (Overview, AML Monitoring, Biometric Auth, Risk Scoring all functional with content loading), ✅ Security System Initialization (Initialize button calls /api/security/initialize successfully), ✅ Responsive Design (works on desktop/tablet/mobile), ✅ User Experience (loading states, error handling, data refresh). All security metrics reflect actual system state with real ML predictions and Jordan Central Bank compliance features."
 
 backend:
+  - task: "Restructured JoPACC Open Banking API - Account Dependent Flow"
+    implemented: true
+    working: true
+    file: "backend/services/jordan_open_finance.py, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ RESTRUCTURED JoPACC API SUCCESSFULLY IMPLEMENTED - All account-dependent API flows working correctly. Key Changes: 1. x-customer-id header ONLY for account API (not for balance/FX APIs), 2. Balance and FX APIs now properly depend on account_id from accounts API, 3. New get_accounts_with_balances method ensures proper dependency flow, 4. Account-dependent FX methods added for enhanced context. Testing Results: ✅ Account API (with x-customer-id header) working correctly, ✅ Balance API (without x-customer-id header) properly depends on account_id, ✅ FX Quote API supports account-dependent flow, ✅ API call sequence verified: Accounts → Balances → FX, ✅ UI improvements show account-dependent data flow information. All restructured endpoints return proper response formats with dependency flow metadata."
+
   - task: "POST /api/open-banking/connect-accounts endpoint"
     implemented: true
     working: true
