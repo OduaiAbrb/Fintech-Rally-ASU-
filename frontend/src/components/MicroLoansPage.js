@@ -102,7 +102,7 @@ const MicroLoansPage = () => {
     setError(null);
     
     try {
-      const response = await api.post('/api/loans/apply', {
+      const response = await api.post('/loans/apply', {
         account_id: selectedAccount,
         loan_amount: amount,
         selected_bank: selectedBank,
