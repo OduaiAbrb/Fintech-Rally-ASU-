@@ -2152,7 +2152,7 @@ async def create_user_transfer(
         )
         
         # Update recipient balance
-        recipient_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        recipient_balance_field = "jd_balance" if currency == "JOD" else "dinarx_balance"
         recipient_current_balance = recipient_wallet.get(recipient_balance_field, 0)
         new_recipient_balance = recipient_current_balance + amount
         await wallets_collection.update_one(
