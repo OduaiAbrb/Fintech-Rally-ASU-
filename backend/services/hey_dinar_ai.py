@@ -337,7 +337,7 @@ class HeyDinarAI:
         advice += "• Review your transactions regularly\n"
         advice += "• Set up automatic savings transfers\n"
         advice += "• Keep 3-6 months of expenses as emergency fund\n"
-        advice += "• Use stablecoin for international transfers to save on fees"
+        advice += "• Use DinarX for international transfers to save on fees"
         
         return advice
     
