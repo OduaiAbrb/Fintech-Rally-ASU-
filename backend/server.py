@@ -468,12 +468,12 @@ async def deposit_funds(
             }
         )
     else:
-        new_balance = wallet["stablecoin_balance"] + transaction_request.amount
+        new_balance = wallet["dinarx_balance"] + transaction_request.amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
             {
                 "$set": {
-                    "stablecoin_balance": new_balance,
+                    "dinarx_balance": new_balance,
                     "updated_at": datetime.utcnow()
                 }
             }
