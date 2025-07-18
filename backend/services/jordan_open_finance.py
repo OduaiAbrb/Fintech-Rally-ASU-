@@ -450,10 +450,10 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
     
-    async def validate_iban(self, account_type: str, account_id: str, iban_type: str, iban_value: str) -> Dict[str, Any]:
+    async def validate_iban(self, account_type: str, account_id: str, iban_type: str, iban_value: str, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Validate IBAN using JoPACC IBAN Confirmation API"""
         
-        # Real JoPACC IBAN Confirmation API call
+        # Real JoPACC IBAN Confirmation API call with customer ID
         headers = {
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
             "x-interactions-id": str(uuid.uuid4()),
@@ -461,6 +461,7 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-id": customer_id,  # Use provided customer ID
             "accountId": account_id,  # Add accountId header as required
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -482,10 +483,10 @@ class JordanOpenFinanceService:
             )
             
             if response.status_code == 200:
-                print(f"JoPACC IBAN Validation Success: {response.json()}")
+                print(f"JoPACC IBAN Validation Success for customer {customer_id}: {response.json()}")
                 return response.json()
             else:
-                error_msg = f"JoPACC IBAN Validation Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC IBAN Validation Error for customer {customer_id}: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
