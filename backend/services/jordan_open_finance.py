@@ -103,7 +103,7 @@ class JordanOpenFinanceService:
         # NOTE: x-customer-id is NOT included for balance API as per user specification
         headers = {
             "x-customer-ip-address": customer_ip,
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
