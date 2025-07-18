@@ -21,7 +21,7 @@ const OffersPage = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/open-banking/accounts', {
+      const response = await api.get('/open-banking/accounts', {
         headers: {
           'x-customer-id': customerId
         }
