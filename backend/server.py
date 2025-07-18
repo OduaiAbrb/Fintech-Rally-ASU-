@@ -2119,7 +2119,7 @@ async def create_user_transfer(
             )
         
         # Check if sender has sufficient balance
-        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("stablecoin_balance", 0)
+        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("dinarx_balance", 0)
         if sender_balance < amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
