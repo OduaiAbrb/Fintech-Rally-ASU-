@@ -54,7 +54,7 @@ class JordanOpenFinanceService:
     
     async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
                           account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
-        """Get user accounts using real JoPACC endpoint - always calls real API"""
+        """Get user accounts using real JoPACC endpoint - only real API calls"""
         
         # Real JoPACC API call with exact headers and URL you provided
         headers = {
@@ -80,86 +80,23 @@ class JordanOpenFinanceService:
         if account_status:
             querystring["accountStatus"] = account_status
         
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Accounts/v0.4.3/accounts",
-                    headers=headers,
-                    params=querystring
-                )
-                
-                if response.status_code == 200:
-                    # If real API succeeds, return the actual data
-                    api_data = response.json()
-                    print(f"JoPACC API Success: {api_data}")
-                    # Check if the API returned empty data
-                    if api_data.get("accounts") and len(api_data["accounts"]) > 0:
-                        return api_data
-                    else:
-                        print("JoPACC API returned empty accounts, falling back to mock data")
-                else:
-                    # If real API fails, log the error and return mock data in the expected format
-                    print(f"JoPACC API Error: {response.status_code} - {response.text}")
-                    
-        except Exception as e:
-            print(f"JoPACC API Exception: {str(e)}")
-        
-        # Fallback to mock data that follows the real API structure
-        # This simulates what the real API should return
-        return {
-            "accounts": [
-                {
-                    "accountId": "acc_001_jordan_bank",
-                    "accountType": "current",
-                    "accountStatus": "active",
-                    "currency": "JOD",
-                    "accountName": "Jordan Bank Current Account",
-                    "accountNumber": "1234567890",
-                    "bankName": "Jordan Bank",
-                    "bankCode": "JBANKJOA",
-                    "balance": {
-                        "available": 2500.75,
-                        "current": 2600.75,
-                        "limit": 5000.00
-                    },
-                    "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                },
-                {
-                    "accountId": "acc_002_arab_bank",
-                    "accountType": "savings",
-                    "accountStatus": "active",
-                    "currency": "JOD",
-                    "accountName": "Arab Bank Savings Account",
-                    "accountNumber": "9876543210",
-                    "bankName": "Arab Bank",
-                    "bankCode": "ARABJOAM",
-                    "balance": {
-                        "available": 15000.00,
-                        "current": 15000.00,
-                        "limit": 0.00
-                    },
-                    "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                },
-                {
-                    "accountId": "acc_003_housing_bank",
-                    "accountType": "business",
-                    "accountStatus": "active",
-                    "currency": "JOD",
-                    "accountName": "Housing Bank Business Account",
-                    "accountNumber": "5555666677",
-                    "bankName": "Housing Bank",
-                    "bankCode": "HBANKJOA",
-                    "balance": {
-                        "available": 8750.50,
-                        "current": 8850.50,
-                        "limit": 10000.00
-                    },
-                    "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                }
-            ],
-            "totalCount": 3,
-            "hasMore": False
-        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Accounts/v0.4.3/accounts",
+                headers=headers,
+                params=querystring
+            )
+            
+            if response.status_code == 200:
+                # Return the actual API data
+                api_data = response.json()
+                print(f"JoPACC API Success: {api_data}")
+                return api_data
+            else:
+                # Return error response instead of mock data
+                error_msg = f"JoPACC API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def get_account_balances(self, account_id: str, customer_ip: str = "127.0.0.1") -> Dict[str, Any]:
         """Get account balances using real JoPACC endpoint - always calls real API"""
