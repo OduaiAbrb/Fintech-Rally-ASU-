@@ -249,17 +249,40 @@ class JordanOpenFinanceService:
             }
         }
         
-        return mock_balances.get(account_id, {
-            "accountId": account_id,
-            "balances": [
-                {
-                    "type": "available",
-                    "amount": 0.00,
-                    "currency": "JOD",
-                    "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                }
-            ]
-        })
+    async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10) -> Dict[str, Any]:
+        """Get accounts and their balances in a single dependent call flow"""
+        
+        # First, get all accounts (this API includes x-customer-id)
+        accounts_response = await self.get_accounts_new(skip=skip, limit=limit)
+        
+        # Extract account IDs from the response
+        enriched_accounts = []
+        for account in accounts_response.get("accounts", []):
+            account_id = account.get("accountId")
+            if account_id:
+                # Get balance for this specific account (this API does NOT include x-customer-id)
+                try:
+                    balance_response = await self.get_account_balances(account_id)
+                    # Enrich account data with detailed balance information
+                    account_with_balance = {
+                        **account,
+                        "detailed_balances": balance_response.get("balances", []),
+                        "balance_last_updated": balance_response.get("lastUpdated", account.get("lastUpdated"))
+                    }
+                    enriched_accounts.append(account_with_balance)
+                except Exception as e:
+                    # If balance API fails, keep original account data
+                    print(f"Balance API failed for account {account_id}: {e}")
+                    enriched_accounts.append(account)
+            else:
+                enriched_accounts.append(account)
+        
+        return {
+            "accounts": enriched_accounts,
+            "totalCount": len(enriched_accounts),
+            "hasMore": accounts_response.get("hasMore", False)
+        }
+    
     
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
     async def create_account_access_consent(self, permissions: List[str], user_id: str) -> Dict[str, Any]:
