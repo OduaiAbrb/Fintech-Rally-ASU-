@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv("REACT_APP_BACKEND_URL", "https://0aa3f469-239e-4a70-bf25-a2009805653e.preview.emergentagent.com")
+BACKEND_URL = os.getenv("REACT_APP_BACKEND_URL", "https://ce28504d-bf4c-4cd5-853b-5f3bb5417fa8.preview.emergentagent.com")
 API_BASE = f"{BACKEND_URL}/api"
 
 class BackendTester:
