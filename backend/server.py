@@ -43,9 +43,16 @@ ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
 # MongoDB configuration
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/stablecoin_db")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/finjo_db")
 client = AsyncIOMotorClient(MONGO_URL)
-database = client.get_database("stablecoin_db")
+
+# Extract database name from URL or use default
+if "finjo_db" in MONGO_URL:
+    db_name = "finjo_db"
+else:
+    db_name = "finjo_db"  # Default to finjo_db
+
+database = client.get_database(db_name)
 db = database  # Alias for database
 
 # Database collections
@@ -69,6 +76,9 @@ risk_service = RiskScoringService(MONGO_URL)
 async def migrate_wallet_fields():
     """Migrate wallet documents from stablecoin_balance to dinarx_balance"""
     try:
+        # Test database connection first
+        await database.list_collection_names()
+        
         # Find all wallets that have stablecoin_balance but not dinarx_balance
         wallets_to_migrate = await wallets_collection.find({
             "stablecoin_balance": {"$exists": True},
@@ -90,15 +100,37 @@ async def migrate_wallet_fields():
                 }
             )
         
-        print(f"Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
+        print(f"✅ Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
         
     except Exception as e:
-        print(f"Error during wallet migration: {e}")
+        print(f"❌ Error during wallet migration: {e}")
+        # Don't fail the startup due to migration issues
+        pass
 
 # Run migration on startup
 @app.on_event("startup")
 async def startup_event():
-    await migrate_wallet_fields()
+    """Initialize application on startup"""
+    try:
+        # Test database connection
+        print("Testing database connection...")
+        await database.list_collection_names()
+        print(f"✅ Database connection successful: {db_name}")
+        
+        # Run migration
+        await migrate_wallet_fields()
+        print("✅ Startup initialization complete")
+        
+    except Exception as e:
+        print(f"❌ Error during startup: {e}")
+        print(f"MONGO_URL: {MONGO_URL}")
+        print(f"Database name: {db_name}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    print("Shutting down Finjo platform...")
+    client.close()
 
 # Pydantic models
 class UserRegistration(BaseModel):
@@ -189,6 +221,41 @@ class UserProfileResponse(BaseModel):
     total_balance: float
     fx_rates: dict
     recent_transfers: List[dict]
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Test database connection
+        collections = await database.list_collection_names()
+        
+        return {
+            "status": "healthy",
+            "service": "Finjo DinarX Platform",
+            "database": {
+                "connected": True,
+                "name": db_name,
+                "collections": len(collections)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "Finjo DinarX Platform",
+            "database": {
+                "connected": False,
+                "error": str(e)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+# API Health check endpoint
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint"""
+    return await health_check()
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
