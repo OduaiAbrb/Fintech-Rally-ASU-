@@ -361,8 +361,8 @@ class FingerprintService:
     """WebAuthn-based fingerprint authentication"""
     
     def __init__(self):
-        self.rp_id = os.getenv("WEBAUTHN_RP_ID", "localhost")
-        self.rp_name = os.getenv("WEBAUTHN_RP_NAME", "StableCoin Fintech")
+        self.rp_id = os.getenv("WEBAUTHN_RP_ID", "finjo.app")
+        self.rp_name = os.getenv("WEBAUTHN_RP_NAME", "Finjo DinarX Platform")
         self.timeout = 60000  # 60 seconds
     
     async def initiate_fingerprint_enrollment(self, user_id: str, username: str) -> Dict:
