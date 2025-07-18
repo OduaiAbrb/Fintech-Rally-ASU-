@@ -1250,8 +1250,9 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                 # Use account-dependent FX rates for the first account
                 first_account_id = linked_accounts[0]["account_id"]
                 fx_response = await jof_service.get_fx_rates_for_account(first_account_id)
-                for rate_info in fx_response.get("rates_for_account", []):
-                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                fx_data = fx_response.get("fx_data", {})
+                for rate_info in fx_data.get("data", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["conversionValue"]
                 # Add account context to FX rates
                 fx_rates["account_context"] = {
                     "account_id": first_account_id,
@@ -1260,8 +1261,8 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             else:
                 # Use general FX rates
                 fx_response = await jof_service.get_fx_rates()
-                for rate_info in fx_response.get("rates", []):
-                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                for rate_info in fx_response.get("data", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["conversionValue"]
         except Exception as e:
             print(f"Error fetching FX rates (no fallback): {e}")
             # Set FX rates to empty to indicate API failure
