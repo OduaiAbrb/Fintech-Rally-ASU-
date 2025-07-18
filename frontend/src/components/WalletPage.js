@@ -323,7 +323,7 @@ const DepositModal = ({ onClose, onSuccess, setActionLoading, actionLoading }) =
 // Exchange Modal Component
 const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoading }) => {
   const [fromCurrency, setFromCurrency] = useState('JD');
-  const [toCurrency, setToCurrency] = useState('STABLECOIN');
+  const [toCurrency, setToCurrency] = useState('DINARX');
   const [amount, setAmount] = useState('');
 
   const handleSubmit = async (e) => {
