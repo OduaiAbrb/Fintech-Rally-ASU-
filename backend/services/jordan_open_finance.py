@@ -209,7 +209,7 @@ class JordanOpenFinanceService:
         
         # First verify account exists and get account details
         try:
-            accounts_response = await self.get_accounts_new(limit=50)
+            accounts_response = await self.get_accounts_new(limit=20)
             account_exists = False
             account_currency = "JOD"  # Default
             
