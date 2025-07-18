@@ -1350,7 +1350,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             "summary": {
                 "total_accounts": len(linked_accounts),
                 "total_bank_balance": total_bank_balance,
-                "wallet_total": wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"],
+                "wallet_total": wallet_balance["jd_balance"] + wallet_balance["dinarx_balance"],
                 "last_updated": datetime.utcnow().isoformat()
             }
         }
