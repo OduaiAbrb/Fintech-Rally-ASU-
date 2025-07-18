@@ -604,9 +604,15 @@ async def connect_accounts(current_user: dict = Depends(get_current_user)):
         )
 
 @app.get("/api/open-banking/accounts")
-async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
+async def get_linked_accounts(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
     """Get user's linked bank accounts using JoPACC AIS standards with account-dependent flow"""
     try:
+        # Get customer ID from header or use default
+        customer_id = request.headers.get("x-customer-id", "IND_CUST_015")
+        
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
         if not consent:
@@ -617,7 +623,7 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         # Get accounts with balances using the new dependent flow - only real API calls
         try:
-            accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+            accounts_response = await jof_service.get_accounts_with_balances(limit=20, customer_id=customer_id)
         except Exception as api_error:
             # Return detailed error information instead of mock data
             raise HTTPException(
