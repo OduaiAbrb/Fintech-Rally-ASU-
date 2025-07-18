@@ -49,7 +49,7 @@ const MicroLoansPage = () => {
     setSuccess(null);
     
     try {
-      const response = await api.get(`/api/loans/eligibility/${accountId}`, {
+      const response = await api.get(`/loans/eligibility/${accountId}`, {
         headers: {
           'x-customer-id': customerId
         }
