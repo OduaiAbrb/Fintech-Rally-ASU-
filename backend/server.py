@@ -22,7 +22,7 @@ from services.risk_scoring import RiskScoringService
 load_dotenv()
 
 # Initialize FastAPI app
-app = FastAPI(title="Stablecoin Fintech Platform", version="1.0.0")
+app = FastAPI(title="Finjo DinarX Platform", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
