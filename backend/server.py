@@ -1338,7 +1338,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             print(f"Error fetching transfers: {e}")
         
         # Calculate total balance
-        total_balance = total_bank_balance + wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"]
+        total_balance = total_bank_balance + wallet_balance["jd_balance"] + wallet_balance["dinarx_balance"]
         
         return {
             "user_info": user_info,
