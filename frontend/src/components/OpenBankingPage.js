@@ -166,6 +166,17 @@ const OpenBankingPage = () => {
                       {formatCurrency(account.available_balance, 'JD')}
                     </span>
                   </div>
+                  {account.detailed_balances && account.detailed_balances.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 mb-2">✅ Account-Dependent Balance Data:</div>
+                      {account.detailed_balances.map((balance, index) => (
+                        <div key={index} className="flex justify-between text-xs text-gray-600">
+                          <span>{balance.type}:</span>
+                          <span>{formatCurrency(balance.amount, balance.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-4 flex space-x-2">
