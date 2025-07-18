@@ -68,11 +68,6 @@ const RegisterPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleIBANValidation = (result) => {
-    setIbanValidationResult(result);
-    console.log('IBAN Validation Result:', result);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
