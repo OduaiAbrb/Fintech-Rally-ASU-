@@ -99,7 +99,7 @@ class JordanOpenFinanceService:
                 raise Exception(error_msg)
     
     async def get_account_balances(self, account_id: str, customer_ip: str = "127.0.0.1") -> Dict[str, Any]:
-        """Get account balances using real JoPACC endpoint - always calls real API"""
+        """Get account balances using real JoPACC endpoint - only real API calls"""
         
         # Real JoPACC API call with exact headers and URL you provided
         # NOTE: x-customer-id is NOT included for balance API as per user specification
@@ -114,77 +114,20 @@ class JordanOpenFinanceService:
             "x-interactions-id": str(uuid.uuid4())
         }
         
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Balances/v0.4.3/accounts/{account_id}/balances",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    # If real API succeeds, return the actual data
-                    return response.json()
-                else:
-                    # If real API fails, log the error and return mock data
-                    print(f"JoPACC Balance API Error: {response.status_code} - {response.text}")
-                    
-        except Exception as e:
-            print(f"JoPACC Balance API Exception: {str(e)}")
-        
-        # Fallback to mock balance data based on account_id
-        mock_balances = {
-            "acc_001_jordan_bank": {
-                "accountId": account_id,
-                "balances": [
-                    {
-                        "type": "available",
-                        "amount": 2500.75,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "type": "current",
-                        "amount": 2600.75,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    }
-                ]
-            },
-            "acc_002_arab_bank": {
-                "accountId": account_id,
-                "balances": [
-                    {
-                        "type": "available",
-                        "amount": 15000.00,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "type": "current",
-                        "amount": 15000.00,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    }
-                ]
-            },
-            "acc_003_housing_bank": {
-                "accountId": account_id,
-                "balances": [
-                    {
-                        "type": "available",
-                        "amount": 8750.50,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "type": "current",
-                        "amount": 8850.50,
-                        "currency": "JOD",
-                        "lastUpdated": datetime.utcnow().isoformat() + "Z"
-                    }
-                ]
-            }
-        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Balances/v0.4.3/accounts/{account_id}/balances",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                # Return the actual API data
+                return response.json()
+            else:
+                # Return error response instead of mock data
+                error_msg = f"JoPACC Balance API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
         
     async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10) -> Dict[str, Any]:
         """Get accounts and their balances in a single dependent call flow"""
