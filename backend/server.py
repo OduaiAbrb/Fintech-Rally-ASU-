@@ -1243,7 +1243,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
         wallet_balance = {
             "jd_balance": wallet.get("jd_balance", 0) if wallet else 0,
-            "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
+            "dinarx_balance": wallet.get("dinarx_balance", 0) if wallet else 0
         }
         
         # Get linked accounts using real JoPACC API with account-dependent flow - only real API calls
