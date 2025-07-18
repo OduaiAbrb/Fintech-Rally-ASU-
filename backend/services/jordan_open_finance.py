@@ -380,63 +380,6 @@ class JordanOpenFinanceService:
             response.raise_for_status()
             return response.json()
     
-    async def get_account_balances(self, account_id: str) -> Dict[str, Any]:
-        """Get account balances following JoPACC AIS v1.0 standards"""
-        if self.sandbox_mode:
-            # Mock balance data based on account_id
-            mock_balances = {
-                "acc_001_jordan_bank": {
-                    "Amount": "2500.75",
-                    "Currency": "JOD"
-                },
-                "acc_002_arab_bank": {
-                    "Amount": "15000.00",
-                    "Currency": "JOD"
-                },
-                "acc_003_housing_bank": {
-                    "Amount": "8750.50",
-                    "Currency": "JOD"
-                }
-            }
-            
-            balance_info = mock_balances.get(account_id, {"Amount": "0.00", "Currency": "JOD"})
-            
-            return {
-                "Data": {
-                    "Balance": [
-                        {
-                            "AccountId": account_id,
-                            "Amount": balance_info,
-                            "CreditDebitIndicator": "Credit",
-                            "Type": "ClosingAvailable",
-                            "DateTime": datetime.utcnow().isoformat() + "Z"
-                        },
-                        {
-                            "AccountId": account_id,
-                            "Amount": {
-                                "Amount": str(float(balance_info["Amount"]) - 100),
-                                "Currency": balance_info["Currency"]
-                            },
-                            "CreditDebitIndicator": "Credit",
-                            "Type": "InterimAvailable",
-                            "DateTime": datetime.utcnow().isoformat() + "Z"
-                        }
-                    ]
-                },
-                "Links": {
-                    "Self": f"/open-banking/v1.0/aisp/accounts/{account_id}/balances"
-                }
-            }
-        
-        headers = await self.get_headers()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(
-                f"{self.api_base}/open-banking/v1.0/aisp/accounts/{account_id}/balances",
-                headers=headers
-            )
-            response.raise_for_status()
-            return response.json()
-    
     async def get_account_transactions(self, account_id: str, from_booking_date: Optional[datetime] = None,
                                      to_booking_date: Optional[datetime] = None) -> Dict[str, Any]:
         """Get account transactions following JoPACC AIS v1.0 standards"""
