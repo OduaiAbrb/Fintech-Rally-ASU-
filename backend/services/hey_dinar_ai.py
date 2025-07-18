@@ -318,10 +318,10 @@ class HeyDinarAI:
         
         # Balance analysis
         jd_balance = wallet_balance.get('jd_balance', 0)
-        stablecoin_balance = wallet_balance.get('stablecoin_balance', 0)
+        dinarx_balance = wallet_balance.get('dinarx_balance', 0)
         
-        if jd_balance > 0 and stablecoin_balance == 0:
-            advice += "💰 **Consider diversifying:** You have JD in your wallet. Consider converting some to stablecoin for international transactions.\n\n"
+        if jd_balance > 0 and dinarx_balance == 0:
+            advice += "💰 **Consider diversifying:** You have JD in your wallet. Consider converting some to DinarX for international transactions.\n\n"
         
         # Spending pattern advice
         if open_banking_data and open_banking_data.get('recent_transactions'):
