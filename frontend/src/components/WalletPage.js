@@ -366,12 +366,12 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
               value={fromCurrency}
               onChange={(e) => {
                 setFromCurrency(e.target.value);
-                setToCurrency(e.target.value === 'JD' ? 'STABLECOIN' : 'JD');
+                setToCurrency(e.target.value === 'JD' ? 'DINARX' : 'JD');
               }}
               className="form-input"
             >
               <option value="JD">Jordanian Dinar (JD)</option>
-              <option value="STABLECOIN">Stablecoin</option>
+              <option value="DINARX">DinarX</option>
             </select>
             <p className="text-sm text-gray-500 mt-1">
               Available: {formatCurrency(maxAmount, fromCurrency)}
