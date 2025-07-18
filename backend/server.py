@@ -876,13 +876,20 @@ async def get_payment_status(
 
 @app.get("/api/open-banking/fx/rates")
 async def get_exchange_rates(
+    account_id: str = None,
     base_currency: str = "JOD",
     current_user: dict = Depends(get_current_user)
 ):
-    """Get current exchange rates"""
+    """Get current exchange rates - optionally account-dependent"""
     try:
-        rates = await jof_service.get_exchange_rates(base_currency)
-        return rates
+        if account_id:
+            # Use account-dependent FX rates
+            rates_response = await jof_service.get_fx_rates_for_account(account_id)
+            return rates_response
+        else:
+            # Use general FX rates
+            rates = await jof_service.get_exchange_rates(base_currency)
+            return rates
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
