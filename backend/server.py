@@ -1961,7 +1961,7 @@ async def get_micro_loan_eligibility(
         credit_info = await jof_service.calculate_credit_score(account_id)
         
         # Get available banks from accounts API
-        accounts_response = await jof_service.get_accounts_new(limit=50)
+        accounts_response = await jof_service.get_accounts_new(limit=20)
         available_banks = []
         
         for account in accounts_response.get("data", []):
