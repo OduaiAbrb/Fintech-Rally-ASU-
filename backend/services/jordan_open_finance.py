@@ -258,22 +258,7 @@ class JordanOpenFinanceService:
     
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
     async def create_account_access_consent(self, permissions: List[str], user_id: str) -> Dict[str, Any]:
-        """Create account access consent following JoPACC AIS standards"""
-        if self.sandbox_mode:
-            consent_id = f"urn:jopacc:consent:{str(uuid.uuid4())}"
-            return {
-                "Data": {
-                    "ConsentId": consent_id,
-                    "Status": "AwaitingAuthorisation",
-                    "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                    "CreationDateTime": datetime.utcnow().isoformat() + "Z",
-                    "Permissions": permissions,
-                    "ExpirationDateTime": (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
-                },
-                "Links": {
-                    "Self": f"/open-banking/v1.0/aisp/account-access-consents/{consent_id}"
-                }
-            }
+        """Create account access consent following JoPACC AIS standards - only real API calls"""
         
         headers = await self.get_headers()
         consent_data = {
@@ -292,8 +277,13 @@ class JordanOpenFinanceService:
                 headers=headers,
                 json=consent_data
             )
-            response.raise_for_status()
-            return response.json()
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_msg = f"JoPACC Consent API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def get_accounts(self, consent_id: str) -> List[Dict[str, Any]]:
         """Get user accounts following JoPACC AIS v1.0 standards"""
