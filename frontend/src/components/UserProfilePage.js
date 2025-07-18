@@ -319,7 +319,7 @@ const TransferModal = ({ accounts, selectedAccount, onClose, onSuccess, setTrans
 
   const fetchFXQuote = async () => {
     try {
-      const response = await userProfileService.getFXQuote('STABLECOIN', parseFloat(formData.amount));
+      const response = await userProfileService.getFXQuote('DINARX', parseFloat(formData.amount));
       setFxQuote(response.data);
     } catch (err) {
       console.error('FX Quote error:', err);
