@@ -19,8 +19,8 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const [dashboardResponse, walletResponse] = await Promise.all([
-        api.get('/api/open-banking/dashboard'),
-        api.get('/api/wallet')
+        api.get('/open-banking/dashboard'),
+        api.get('/wallet')
       ]);
 
       setDashboardData(dashboardResponse.data);
