@@ -469,7 +469,8 @@ async def deposit_funds(
             }
         )
     else:
-        new_balance = wallet["dinarx_balance"] + transaction_request.amount
+        current_dinarx_balance = wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
+        new_balance = current_dinarx_balance + transaction_request.amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
             {
