@@ -65,6 +65,41 @@ aml_monitor = AMLMonitor(MONGO_URL)
 biometric_service = BiometricAuthenticationService(MONGO_URL)
 risk_service = RiskScoringService(MONGO_URL)
 
+# Database migration function
+async def migrate_wallet_fields():
+    """Migrate wallet documents from stablecoin_balance to dinarx_balance"""
+    try:
+        # Find all wallets that have stablecoin_balance but not dinarx_balance
+        wallets_to_migrate = await wallets_collection.find({
+            "stablecoin_balance": {"$exists": True},
+            "dinarx_balance": {"$exists": False}
+        }).to_list(length=None)
+        
+        for wallet in wallets_to_migrate:
+            # Update the wallet to use dinarx_balance instead of stablecoin_balance
+            await wallets_collection.update_one(
+                {"_id": wallet["_id"]},
+                {
+                    "$set": {
+                        "dinarx_balance": wallet.get("stablecoin_balance", 0),
+                        "updated_at": datetime.utcnow()
+                    },
+                    "$unset": {
+                        "stablecoin_balance": ""
+                    }
+                }
+            )
+        
+        print(f"Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
+        
+    except Exception as e:
+        print(f"Error during wallet migration: {e}")
+
+# Run migration on startup
+@app.on_event("startup")
+async def startup_event():
+    await migrate_wallet_fields()
+
 # Pydantic models
 class UserRegistration(BaseModel):
     email: str
