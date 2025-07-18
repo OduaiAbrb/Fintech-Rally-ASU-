@@ -298,7 +298,7 @@ class JordanOpenFinanceService:
             "x-idempotency-key": str(uuid.uuid4()),
             "x-interactions-id": str(uuid.uuid4()),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-customer-ip-address": "127.0.0.1",
             "Content-Type": "application/json",
             "Accept": "application/json"
