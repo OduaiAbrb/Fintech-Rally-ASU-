@@ -348,7 +348,7 @@ async def exchange_currency(
                 detail="Insufficient JD balance"
             )
     else:
-        if wallet["stablecoin_balance"] < exchange_request.amount:
+        if wallet["dinarx_balance"] < exchange_request.amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Insufficient stablecoin balance"
