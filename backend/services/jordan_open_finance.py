@@ -920,11 +920,11 @@ class JordanOpenFinanceService:
             )
             response.raise_for_status()
             return response.json()
-    
+        
     # Legacy methods for backward compatibility
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
-        accounts_response = await self.get_accounts()
+        accounts_response = await self.get_accounts_new()
         
         # Convert new format to legacy format
         accounts = []
