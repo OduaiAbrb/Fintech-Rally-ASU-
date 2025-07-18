@@ -631,38 +631,7 @@ class JordanOpenFinanceService:
             return response.json()
     
     async def get_fx_rates(self) -> Dict[str, Any]:
-        """Get FX rates using real JoPACC endpoint"""
-        if self.sandbox_mode:
-            return {
-                "baseCurrency": "JOD",
-                "rates": [
-                    {
-                        "targetCurrency": "USD",
-                        "rate": 1.41,
-                        "rateType": "spot",
-                        "timestamp": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "targetCurrency": "EUR",
-                        "rate": 1.29,
-                        "rateType": "spot",
-                        "timestamp": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "targetCurrency": "GBP",
-                        "rate": 1.13,
-                        "rateType": "spot",
-                        "timestamp": datetime.utcnow().isoformat() + "Z"
-                    },
-                    {
-                        "targetCurrency": "SAR",
-                        "rate": 5.28,
-                        "rateType": "spot",
-                        "timestamp": datetime.utcnow().isoformat() + "Z"
-                    }
-                ],
-                "lastUpdated": datetime.utcnow().isoformat() + "Z"
-            }
+        """Get FX rates using real JoPACC endpoint - only real API calls"""
         
         headers = await self.get_headers()
         
@@ -671,8 +640,15 @@ class JordanOpenFinanceService:
                 f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs",
                 headers=headers
             )
-            response.raise_for_status()
-            return response.json()
+            
+            if response.status_code == 200:
+                # Return the actual API data
+                return response.json()
+            else:
+                # Return error response instead of mock data
+                error_msg = f"JoPACC FX Rates API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
         """Get FX quote using real JoPACC endpoint - only real API calls"""
