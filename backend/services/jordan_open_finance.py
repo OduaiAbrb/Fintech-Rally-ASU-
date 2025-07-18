@@ -407,6 +407,169 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
     
+    async def get_account_offers(self, account_id: str, product_id: str = None, skip: int = 0, limit: int = 10, sort: str = "desc") -> Dict[str, Any]:
+        """Get account offers using real JoPACC endpoint - account-dependent API"""
+        
+        # Real JoPACC Offers API call with exact headers
+        headers = {
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-id": "IND_CUST_015",
+            "x-customer-ip-address": "127.0.0.1",
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Query parameters
+        params = {
+            "skip": skip,
+            "sort": sort,
+            "limit": limit
+        }
+        
+        if product_id:
+            params["productId"] = product_id
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Offers/v0.4.3/accounts/{account_id}/offers",
+                headers=headers,
+                params=params
+            )
+            
+            if response.status_code == 200:
+                print(f"JoPACC Offers API Success: {response.json()}")
+                return response.json()
+            else:
+                error_msg = f"JoPACC Offers API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
+    
+    async def validate_iban(self, account_type: str, account_id: str, iban_type: str, iban_value: str) -> Dict[str, Any]:
+        """Validate IBAN using JoPACC IBAN Confirmation API"""
+        
+        # Real JoPACC IBAN Confirmation API call
+        headers = {
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Query parameters for IBAN validation
+        params = {
+            "accountType": account_type,
+            "accountId": account_id,
+            "ibanType": iban_type,
+            "ibanValue": iban_value
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/IBAN%20Confirmation/v0.4.3/institution/ibanConf",
+                headers=headers,
+                params=params
+            )
+            
+            if response.status_code == 200:
+                print(f"JoPACC IBAN Validation Success: {response.json()}")
+                return response.json()
+            else:
+                error_msg = f"JoPACC IBAN Validation Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
+    
+    async def calculate_credit_score(self, account_id: str) -> Dict[str, Any]:
+        """Calculate credit score based on account data for micro loans"""
+        
+        try:
+            # Get account data first
+            accounts_response = await self.get_accounts_new(limit=50)
+            account_data = None
+            
+            for account in accounts_response.get("data", []):
+                if account.get("accountId") == account_id:
+                    account_data = account
+                    break
+            
+            if not account_data:
+                raise ValueError(f"Account {account_id} not found")
+            
+            # Calculate credit score based on account information
+            available_balance = account_data.get("availableBalance", {})
+            balance_amount = available_balance.get("balanceAmount", 0)
+            account_status = account_data.get("accountStatus", "unknown")
+            account_type = account_data.get("accountType", {}).get("code", "")
+            
+            # Simple credit scoring algorithm
+            score = 300  # Base score
+            
+            # Balance factor
+            if balance_amount > 5000:
+                score += 200
+            elif balance_amount > 1000:
+                score += 150
+            elif balance_amount > 500:
+                score += 100
+            elif balance_amount > 0:
+                score += 50
+            
+            # Account status factor
+            if account_status == "active":
+                score += 100
+            elif account_status == "suspended":
+                score += 50
+            # closed accounts get no bonus
+            
+            # Account type factor
+            if "SAL" in account_type:  # Salary account
+                score += 100
+            elif "SAV" in account_type:  # Savings account
+                score += 75
+            elif "CUR" in account_type:  # Current account
+                score += 50
+            
+            # Cap the score at 850
+            score = min(score, 850)
+            
+            # Determine eligibility
+            if score >= 650:
+                eligibility = "excellent"
+                max_loan = min(balance_amount * 5, 50000)
+            elif score >= 550:
+                eligibility = "good"
+                max_loan = min(balance_amount * 3, 25000)
+            elif score >= 450:
+                eligibility = "fair"
+                max_loan = min(balance_amount * 2, 10000)
+            else:
+                eligibility = "poor"
+                max_loan = 0
+            
+            return {
+                "account_id": account_id,
+                "credit_score": score,
+                "eligibility": eligibility,
+                "max_loan_amount": max_loan,
+                "balance_amount": balance_amount,
+                "account_status": account_status,
+                "account_type": account_type,
+                "calculated_at": datetime.utcnow().isoformat() + "Z"
+            }
+            
+        except Exception as e:
+            print(f"Credit score calculation error: {e}")
+            raise Exception(f"Credit score calculation failed: {str(e)}")
+    
     # Legacy methods for backward compatibility - all now use real API calls only
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
