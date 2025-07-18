@@ -629,18 +629,27 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         # Process accounts from real API response
         for account in accounts_response.get("accounts", []):
+            # Extract account info from the real JoPACC response structure
+            account_type_info = account.get("accountType", {})
+            available_balance_info = account.get("availableBalance", {})
+            main_route_info = account.get("mainRoute", {})
+            institution_info = account.get("institutionBasicInfo", {})
+            institution_name = institution_info.get("name", {})
+            
             account_data = {
-                "account_id": account["accountId"],
-                "account_name": account["accountName"],
-                "account_number": account["accountNumber"],
-                "bank_name": account["bankName"],
-                "bank_code": account["bankCode"],
-                "account_type": account["accountType"],
-                "currency": account["currency"],
-                "balance": float(account["balance"]["current"]),
-                "available_balance": float(account["balance"]["available"]),
-                "status": account["accountStatus"],
-                "last_updated": account["lastUpdated"],
+                "account_id": account.get("accountId", ""),
+                "account_name": account_type_info.get("name", "Unknown Account"),
+                "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                "bank_name": institution_name.get("enName", "Unknown Bank"),
+                "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                "account_type": account_type_info.get("code", "UNKNOWN"),
+                "currency": account.get("accountCurrency", "JOD"),
+                "balance": float(available_balance_info.get("balanceAmount", 0)),
+                "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                "status": account.get("accountStatus", "unknown"),
+                "last_updated": account.get("lastModificationDateTime", ""),
+                "iban": main_route_info.get("address", ""),
+                "balance_position": available_balance_info.get("balancePosition", "credit"),
                 # Add detailed balance information if available
                 "detailed_balances": account.get("detailed_balances", []),
                 "balance_last_updated": account.get("balance_last_updated")
@@ -940,7 +949,7 @@ async def get_financial_products(current_user: dict = Depends(get_current_user))
 
 @app.get("/api/open-banking/dashboard")
 async def get_open_banking_dashboard(current_user: dict = Depends(get_current_user)):
-    """Get aggregated dashboard data from all linked accounts"""
+    """Get aggregated dashboard data from all linked accounts using real JoPACC API"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -953,42 +962,83 @@ async def get_open_banking_dashboard(current_user: dict = Depends(get_current_us
                 "recent_transactions": []
             }
         
-        # Get all linked accounts
-        accounts_cursor = linked_accounts_collection.find({"user_id": current_user["_id"]})
+        # Get all linked accounts from real JoPACC API
         accounts = []
         total_balance = 0.0
         
-        async for account in accounts_cursor:
-            account_data = {
-                "account_id": account["_id"],
-                "account_name": account["account_name"],
-                "bank_name": account["bank_name"],
-                "balance": account["balance"],
-                "available_balance": account["available_balance"],
-                "currency": account["currency"],
-                "account_type": account["account_type"],
-                "last_updated": account["last_updated"]
-            }
-            accounts.append(account_data)
-            total_balance += account["balance"]
-        
-        # Get recent transactions from all accounts
-        recent_transactions = []
-        for account in accounts[:3]:  # Get transactions from first 3 accounts
-            try:
-                transactions = await jof_service.get_account_transactions(
-                    account["account_id"], consent["_id"], limit=5
+        try:
+            # Use real JoPACC API to get accounts with balances
+            accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+            
+            for account in accounts_response.get("accounts", []):
+                # Extract account info from the real JoPACC response structure
+                account_type_info = account.get("accountType", {})
+                available_balance_info = account.get("availableBalance", {})
+                main_route_info = account.get("mainRoute", {})
+                institution_info = account.get("institutionBasicInfo", {})
+                institution_name = institution_info.get("name", {})
+                
+                account_data = {
+                    "account_id": account.get("accountId", ""),
+                    "account_name": account_type_info.get("name", "Unknown Account"),
+                    "bank_name": institution_name.get("enName", "Unknown Bank"),
+                    "balance": float(available_balance_info.get("balanceAmount", 0)),
+                    "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                    "currency": account.get("accountCurrency", "JOD"),
+                    "account_type": account_type_info.get("code", "UNKNOWN"),
+                    "status": account.get("accountStatus", "unknown"),
+                    "iban": main_route_info.get("address", ""),
+                    "balance_position": available_balance_info.get("balancePosition", "credit"),
+                    "last_updated": account.get("lastModificationDateTime", ""),
+                    "data_source": "real_jopacc_api"
+                }
+                accounts.append(account_data)
+                total_balance += account_data["balance"]
+                
+                # Store/update account in database for future reference
+                account_doc = {
+                    "_id": account.get("accountId", ""),
+                    "user_id": current_user["_id"],
+                    "account_name": account_data["account_name"],
+                    "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                    "bank_name": account_data["bank_name"],
+                    "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                    "account_type": account_data["account_type"],
+                    "currency": account_data["currency"],
+                    "balance": account_data["balance"],
+                    "available_balance": account_data["available_balance"],
+                    "status": account_data["status"],
+                    "last_updated": datetime.utcnow(),
+                    "jopacc_account_data": account
+                }
+                
+                await linked_accounts_collection.update_one(
+                    {"_id": account.get("accountId", "")},
+                    {"$set": account_doc},
+                    upsert=True
                 )
-                for tx in transactions:
-                    tx["account_name"] = account["account_name"]
-                    tx["bank_name"] = account["bank_name"]
-                recent_transactions.extend(transactions)
-            except:
-                continue
         
-        # Sort transactions by date
-        recent_transactions.sort(key=lambda x: x["transaction_date"], reverse=True)
-        recent_transactions = recent_transactions[:10]  # Top 10 recent transactions
+        except Exception as e:
+            print(f"Error fetching real JoPACC accounts: {e}")
+            # If real API fails, fall back to database
+            accounts_cursor = linked_accounts_collection.find({"user_id": current_user["_id"]})
+            async for account in accounts_cursor:
+                account_data = {
+                    "account_id": account["_id"],
+                    "account_name": account["account_name"],
+                    "bank_name": account["bank_name"],
+                    "balance": account["balance"],
+                    "available_balance": account["available_balance"],
+                    "currency": account["currency"],
+                    "account_type": account["account_type"],
+                    "last_updated": account["last_updated"],
+                    "data_source": "database_fallback"
+                }
+                accounts.append(account_data)
+                total_balance += account["balance"]
+        
+        # Get recent transactions (simplified for now)
+        recent_transactions = []
         
         return {
             "has_linked_accounts": len(accounts) > 0,
@@ -1200,18 +1250,27 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                 accounts_response = await jof_service.get_accounts_with_balances(limit=20)
                 
                 for account in accounts_response.get("accounts", []):
+                    # Extract account info from the real JoPACC response structure
+                    account_type_info = account.get("accountType", {})
+                    available_balance_info = account.get("availableBalance", {})
+                    main_route_info = account.get("mainRoute", {})
+                    institution_info = account.get("institutionBasicInfo", {})
+                    institution_name = institution_info.get("name", {})
+                    
                     account_data = {
-                        "account_id": account["accountId"],
-                        "account_name": account["accountName"],
-                        "account_number": account["accountNumber"],
-                        "bank_name": account["bankName"],
-                        "bank_code": account["bankCode"],
-                        "account_type": account["accountType"],
-                        "currency": account["currency"],
-                        "balance": float(account["balance"]["current"]),
-                        "available_balance": float(account["balance"]["available"]),
-                        "status": account["accountStatus"],
-                        "last_updated": account["lastUpdated"],
+                        "account_id": account.get("accountId", ""),
+                        "account_name": account_type_info.get("name", "Unknown Account"),
+                        "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                        "bank_name": institution_name.get("enName", "Unknown Bank"),
+                        "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                        "account_type": account_type_info.get("code", "UNKNOWN"),
+                        "currency": account.get("accountCurrency", "JOD"),
+                        "balance": float(available_balance_info.get("balanceAmount", 0)),
+                        "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                        "status": account.get("accountStatus", "unknown"),
+                        "last_updated": account.get("lastModificationDateTime", ""),
+                        "iban": main_route_info.get("address", ""),
+                        "balance_position": available_balance_info.get("balancePosition", "credit"),
                         "detailed_balances": account.get("detailed_balances", []),
                         "balance_last_updated": account.get("balance_last_updated")
                     }
@@ -1232,8 +1291,9 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                 # Use account-dependent FX rates for the first account
                 first_account_id = linked_accounts[0]["account_id"]
                 fx_response = await jof_service.get_fx_rates_for_account(first_account_id)
-                for rate_info in fx_response.get("rates_for_account", []):
-                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                fx_data = fx_response.get("fx_data", {})
+                for rate_info in fx_data.get("data", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["conversionValue"]
                 # Add account context to FX rates
                 fx_rates["account_context"] = {
                     "account_id": first_account_id,
@@ -1242,8 +1302,8 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             else:
                 # Use general FX rates
                 fx_response = await jof_service.get_fx_rates()
-                for rate_info in fx_response.get("rates", []):
-                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                for rate_info in fx_response.get("data", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["conversionValue"]
         except Exception as e:
             print(f"Error fetching FX rates (no fallback): {e}")
             # Set FX rates to empty to indicate API failure
