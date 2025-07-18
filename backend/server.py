@@ -604,7 +604,7 @@ async def connect_accounts(current_user: dict = Depends(get_current_user)):
 
 @app.get("/api/open-banking/accounts")
 async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
-    """Get user's linked bank accounts using JoPACC AIS standards"""
+    """Get user's linked bank accounts using JoPACC AIS standards with account-dependent flow"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -614,8 +614,8 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 detail="No banking consent found. Please link your bank accounts first."
             )
         
-        # Get accounts from Jordan Open Finance using JoPACC standards
-        accounts_response = await jof_service.get_accounts_new()
+        # Get accounts with balances using the new dependent flow
+        accounts_response = await jof_service.get_accounts_with_balances(limit=20)
         
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
@@ -633,24 +633,27 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 "balance": float(account["balance"]["current"]),
                 "available_balance": float(account["balance"]["available"]),
                 "status": account["accountStatus"],
-                "last_updated": account["lastUpdated"]
+                "last_updated": account["lastUpdated"],
+                # Add detailed balance information if available
+                "detailed_balances": account.get("detailed_balances", []),
+                "balance_last_updated": account.get("balance_last_updated")
             }
+            
             accounts.append(account_data)
             
-            # Store/update accounts in database
+            # Store/update account in database
             account_doc = {
                 "_id": account["accountId"],
                 "user_id": current_user["_id"],
-                "consent_id": consent["_id"] if consent else None,
-                "account_name": account_data["account_name"],
-                "account_number": account_data["account_number"],
-                "bank_name": account_data["bank_name"],
-                "bank_code": account_data["bank_code"],
-                "account_type": account_data["account_type"],
-                "currency": account_data["currency"],
-                "balance": account_data["balance"],
-                "available_balance": account_data["available_balance"],
-                "status": account_data["status"],
+                "account_name": account["accountName"],
+                "account_number": account["accountNumber"],
+                "bank_name": account["bankName"],
+                "bank_code": account["bankCode"],
+                "account_type": account["accountType"],
+                "currency": account["currency"],
+                "balance": float(account["balance"]["current"]),
+                "available_balance": float(account["balance"]["available"]),
+                "status": account["accountStatus"],
                 "last_updated": datetime.utcnow(),
                 "jopacc_account_data": account
             }
@@ -663,7 +666,9 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         return {
             "accounts": accounts,
-            "total": len(accounts)
+            "total": len(accounts),
+            "dependency_flow": "accounts_with_balances",
+            "api_call_sequence": "1. get_accounts_new (with x-customer-id), 2. get_account_balances (without x-customer-id) for each account"
         }
     except Exception as e:
         raise HTTPException(
