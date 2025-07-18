@@ -127,11 +127,11 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
         
-    async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10) -> Dict[str, Any]:
+    async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Get accounts and their balances in a single dependent call flow"""
         
         # First, get all accounts (this API includes x-customer-id)
-        accounts_response = await self.get_accounts_new(skip=skip, limit=limit)
+        accounts_response = await self.get_accounts_new(skip=skip, limit=limit, customer_id=customer_id)
         
         # Extract account IDs from the response - JoPACC API returns data in "data" field
         enriched_accounts = []
