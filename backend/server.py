@@ -1946,29 +1946,22 @@ async def validate_iban(
             }
         }
 
-@app.get("/api/micro-loans/eligibility/{account_id}")
+@app.get("/api/loans/eligibility/{account_id}")
 async def get_micro_loan_eligibility(
     account_id: str,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """Get micro loan eligibility based on credit score"""
     try:
-        # Verify account belongs to user
-        linked_account = await linked_accounts_collection.find_one({
-            "_id": account_id,
-            "user_id": current_user["_id"]
-        })
-        if not linked_account:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account not found or not linked to your profile"
-            )
+        # Get customer ID from header or use default
+        customer_id = request.headers.get("x-customer-id", "IND_CUST_015")
         
         # Calculate credit score and eligibility
-        credit_info = await jof_service.calculate_credit_score(account_id)
+        credit_info = await jof_service.calculate_credit_score(account_id, customer_id)
         
         # Get available banks from accounts API
-        accounts_response = await jof_service.get_accounts_new(limit=20)
+        accounts_response = await jof_service.get_accounts_new(limit=20, customer_id=customer_id)
         available_banks = []
         
         for account in accounts_response.get("data", []):
@@ -1985,6 +1978,7 @@ async def get_micro_loan_eligibility(
         
         return {
             "account_id": account_id,
+            "customer_id": customer_id,
             "credit_score": credit_info["credit_score"],
             "eligibility": credit_info["eligibility"],
             "max_loan_amount": credit_info["max_loan_amount"],
