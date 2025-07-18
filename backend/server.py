@@ -666,17 +666,17 @@ async def get_linked_accounts(
             
             # Store/update account in database
             account_doc = {
-                "_id": account["accountId"],
+                "_id": account.get("accountId", ""),
                 "user_id": current_user["_id"],
-                "account_name": account["accountName"],
-                "account_number": account["accountNumber"],
-                "bank_name": account["bankName"],
-                "bank_code": account["bankCode"],
-                "account_type": account["accountType"],
-                "currency": account["currency"],
-                "balance": float(account["balance"]["current"]),
-                "available_balance": float(account["balance"]["available"]),
-                "status": account["accountStatus"],
+                "account_name": account_type_info.get("name", "Unknown Account"),
+                "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                "bank_name": institution_name.get("enName", "Unknown Bank"),
+                "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                "account_type": account_type_info.get("code", "UNKNOWN"),
+                "currency": account.get("accountCurrency", "JOD"),
+                "balance": float(available_balance_info.get("balanceAmount", 0)),
+                "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                "status": account.get("accountStatus", "unknown"),
                 "last_updated": datetime.utcnow(),
                 "jopacc_account_data": account
             }
