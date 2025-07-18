@@ -350,7 +350,7 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
     }
   };
 
-  const maxAmount = fromCurrency === 'JD' ? wallet?.jd_balance || 0 : wallet?.stablecoin_balance || 0;
+  const maxAmount = fromCurrency === 'JD' ? wallet?.jd_balance || 0 : wallet?.dinarx_balance || 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
