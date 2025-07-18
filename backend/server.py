@@ -1079,7 +1079,7 @@ async def chat_with_hey_dinar(
         if wallet:
             context_data["wallet_balance"] = {
                 "jd_balance": wallet.get("jd_balance", 0),
-                "dinarx_balance": wallet.get("dinarx_balance", 0)
+                "dinarx_balance": wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0))
             }
         
         # Get open banking data
