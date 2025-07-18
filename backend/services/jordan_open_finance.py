@@ -170,10 +170,10 @@ class JordanOpenFinanceService:
             account_exists = False
             account_currency = "JOD"  # Default
             
-            for account in accounts_response.get("accounts", []):
+            for account in accounts_response.get("data", []):
                 if account.get("accountId") == account_id:
                     account_exists = True
-                    account_currency = account.get("currency", "JOD")
+                    account_currency = account.get("accountCurrency", "JOD")
                     break
             
             if not account_exists:
@@ -187,7 +187,7 @@ class JordanOpenFinanceService:
                 "account_id": account_id,
                 "account_currency": account_currency,
                 "fx_data": fx_response,
-                "rates_for_account": fx_response.get("rates", []),
+                "rates_for_account": fx_response.get("data", []),
                 "last_updated": fx_response.get("lastUpdated", datetime.utcnow().isoformat() + "Z")
             }
             
@@ -199,7 +199,7 @@ class JordanOpenFinanceService:
                 "account_id": account_id,
                 "account_currency": "JOD",
                 "fx_data": fx_response,
-                "rates_for_account": fx_response.get("rates", []),
+                "rates_for_account": fx_response.get("data", []),
                 "last_updated": fx_response.get("lastUpdated", datetime.utcnow().isoformat() + "Z"),
                 "warning": "Account verification failed, using default FX rates"
             }
