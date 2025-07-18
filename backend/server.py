@@ -368,7 +368,7 @@ async def exchange_currency(
         {
             "$set": {
                 "jd_balance": new_jd_balance,
-                "dinarx_balance": new_stablecoin_balance,
+                "dinarx_balance": new_dinarx_balance,
                 "updated_at": datetime.utcnow()
             }
         }
