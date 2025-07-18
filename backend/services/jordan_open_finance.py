@@ -287,24 +287,31 @@ class JordanOpenFinanceService:
     async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
         """Get FX quote using real JoPACC endpoint - only real API calls"""
         
-        # Real JoPACC API call with exact headers and URL you provided
+        # Real JoPACC FX API call with correct endpoint and IND_CUST_015
         headers = {
-            "x-interactions-id": str(uuid.uuid4()),
+            "x-customer-id": "IND_CUST_015",
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
-            "x-idempotency-key": str(uuid.uuid4())
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-ip-address": "127.0.0.1",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
+                "http://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
                 headers=headers
             )
             
             if response.status_code == 200:
                 # Process the real API response
                 fx_data = response.json()
+                print(f"JoPACC FX Quote API Success: {fx_data}")
                 
                 # Convert JoPACC FX API response to our expected format
                 if "data" in fx_data and fx_data["data"]:
@@ -348,7 +355,7 @@ class JordanOpenFinanceService:
                 raise Exception(error_msg)
             else:
                 # Return error response instead of mock data
-                error_msg = f"JoPACC FX API Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC FX Quote API Error: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
