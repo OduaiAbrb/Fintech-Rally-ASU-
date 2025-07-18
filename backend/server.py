@@ -357,7 +357,7 @@ async def exchange_currency(
     # Perform exchange
     if exchange_request.from_currency == "JD":
         new_jd_balance = wallet["jd_balance"] - exchange_request.amount
-        new_stablecoin_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
+        new_dinarx_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
     else:
         new_jd_balance = wallet["jd_balance"] + (exchange_request.amount * exchange_rate)
         new_stablecoin_balance = wallet["dinarx_balance"] - exchange_request.amount
