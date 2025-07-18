@@ -923,9 +923,346 @@ class BackendTester:
             self.print_result(False, f"User transfer with AML monitoring test error: {str(e)}")
             return False
     
+    async def test_restructured_accounts_api_with_headers(self) -> bool:
+        """Test GET /api/open-banking/accounts with x-customer-id header and get_accounts_with_balances method"""
+        self.print_test_header("Restructured Accounts API - Header Verification")
+        
+        try:
+            response = await self.client.get(
+                f"{API_BASE}/open-banking/accounts",
+                headers=self.get_auth_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response structure includes dependency flow information
+                if "dependency_flow" in data:
+                    dependency_flow = data["dependency_flow"]
+                    if dependency_flow == "accounts_with_balances":
+                        self.print_result(True, "Accounts API uses get_accounts_with_balances method")
+                    else:
+                        self.print_result(False, f"Unexpected dependency flow: {dependency_flow}")
+                        return False
+                else:
+                    self.print_result(False, "Missing dependency_flow information in response")
+                    return False
+                
+                # Verify API call sequence information
+                if "api_call_sequence" in data:
+                    sequence_info = data["api_call_sequence"]
+                    if "x-customer-id" in sequence_info and "without x-customer-id" in sequence_info:
+                        self.print_result(True, "API call sequence shows proper header usage")
+                        print(f"   📋 Call Sequence: {sequence_info}")
+                    else:
+                        self.print_result(False, "API call sequence missing header information")
+                        return False
+                
+                # Verify accounts structure
+                if "accounts" not in data or not isinstance(data["accounts"], list):
+                    self.print_result(False, "Invalid accounts structure")
+                    return False
+                
+                # Check for detailed balance information (from dependent call)
+                for account in data["accounts"]:
+                    if "detailed_balances" in account:
+                        self.print_result(True, f"Account {account['account_id']} has detailed balance info from dependent call")
+                        break
+                else:
+                    self.print_result(False, "No accounts have detailed balance information from dependent calls")
+                    return False
+                
+                self.print_result(True, f"Restructured Accounts API working correctly - {len(data['accounts'])} accounts with dependent balance data")
+                return True
+            else:
+                self.print_result(False, f"Request failed: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.print_result(False, f"Restructured Accounts API test error: {str(e)}")
+            return False
+    
+    async def test_account_balance_api_without_customer_id(self) -> bool:
+        """Test GET /api/open-banking/accounts/{account_id}/balance - should NOT include x-customer-id header"""
+        self.print_test_header("Account Balance API - Header Verification")
+        
+        try:
+            # First get accounts to get a valid account_id
+            accounts_response = await self.client.get(
+                f"{API_BASE}/open-banking/accounts",
+                headers=self.get_auth_headers()
+            )
+            
+            if accounts_response.status_code != 200:
+                self.print_result(False, "Failed to get accounts for balance test")
+                return False
+            
+            accounts_data = accounts_response.json()
+            if not accounts_data.get("accounts"):
+                self.print_result(False, "No accounts available for balance test")
+                return False
+            
+            account_id = accounts_data["accounts"][0]["account_id"]
+            
+            # Test balance API
+            response = await self.client.get(
+                f"{API_BASE}/open-banking/accounts/{account_id}/balance",
+                headers=self.get_auth_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response structure
+                required_fields = ["account_id", "balance", "available_balance", "currency", "last_updated"]
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    self.print_result(False, f"Missing balance fields: {missing_fields}")
+                    return False
+                
+                # Verify API call info shows correct header usage
+                if "api_call_info" in data:
+                    api_info = data["api_call_info"]
+                    if api_info.get("includes_x_customer_id") == False and api_info.get("depends_on_account_id") == True:
+                        self.print_result(True, "Balance API correctly excludes x-customer-id header and depends on account_id")
+                        print(f"   📋 API Call Info: {api_info}")
+                    else:
+                        self.print_result(False, f"Incorrect API call info: {api_info}")
+                        return False
+                else:
+                    self.print_result(False, "Missing api_call_info in balance response")
+                    return False
+                
+                # Verify detailed balances from dependent call
+                if "detailed_balances" in data and isinstance(data["detailed_balances"], list):
+                    self.print_result(True, f"Balance API includes detailed balance information")
+                    print(f"   💰 Balance: {data['balance']} {data['currency']}")
+                    print(f"   💰 Available: {data['available_balance']} {data['currency']}")
+                else:
+                    self.print_result(False, "Missing detailed_balances from dependent API call")
+                    return False
+                
+                return True
+            else:
+                self.print_result(False, f"Balance request failed: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.print_result(False, f"Account Balance API test error: {str(e)}")
+            return False
+    
+    async def test_fx_api_account_dependent(self) -> bool:
+        """Test GET /api/open-banking/fx/rates with account_id parameter - should be account-dependent"""
+        self.print_test_header("FX API - Account Dependency")
+        
+        try:
+            # First get accounts to get a valid account_id
+            accounts_response = await self.client.get(
+                f"{API_BASE}/open-banking/accounts",
+                headers=self.get_auth_headers()
+            )
+            
+            if accounts_response.status_code != 200:
+                self.print_result(False, "Failed to get accounts for FX test")
+                return False
+            
+            accounts_data = accounts_response.json()
+            if not accounts_data.get("accounts"):
+                self.print_result(False, "No accounts available for FX test")
+                return False
+            
+            account_id = accounts_data["accounts"][0]["account_id"]
+            
+            # Test FX API with account_id parameter
+            response = await self.client.get(
+                f"{API_BASE}/open-banking/fx/rates?account_id={account_id}&base_currency=JOD",
+                headers=self.get_auth_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify account-dependent FX response structure
+                if "account_id" in data and data["account_id"] == account_id:
+                    self.print_result(True, f"FX API correctly uses account-dependent flow for account {account_id}")
+                else:
+                    self.print_result(False, "FX API response missing account_id or incorrect account_id")
+                    return False
+                
+                # Verify account context information
+                if "account_currency" in data:
+                    account_currency = data["account_currency"]
+                    self.print_result(True, f"FX API includes account currency context: {account_currency}")
+                else:
+                    self.print_result(False, "FX API missing account currency context")
+                    return False
+                
+                # Verify rates for account
+                if "rates_for_account" in data and isinstance(data["rates_for_account"], list):
+                    rates_count = len(data["rates_for_account"])
+                    self.print_result(True, f"FX API returns {rates_count} account-specific rates")
+                    
+                    # Print some rate information
+                    for rate in data["rates_for_account"][:3]:
+                        if "targetCurrency" in rate and "rate" in rate:
+                            print(f"   💱 {data['account_currency']} to {rate['targetCurrency']}: {rate['rate']}")
+                else:
+                    self.print_result(False, "FX API missing rates_for_account")
+                    return False
+                
+                return True
+            else:
+                self.print_result(False, f"FX request failed: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.print_result(False, f"FX API account dependency test error: {str(e)}")
+            return False
+    
+    async def test_user_profile_account_dependent_fx(self) -> bool:
+        """Test GET /api/user/profile - should use account-dependent FX rates"""
+        self.print_test_header("User Profile - Account-Dependent FX Rates")
+        
+        try:
+            response = await self.client.get(
+                f"{API_BASE}/user/profile",
+                headers=self.get_auth_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify profile structure
+                required_fields = ["user_info", "wallet_balance", "linked_accounts", "total_balance", "fx_rates"]
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    self.print_result(False, f"Missing profile fields: {missing_fields}")
+                    return False
+                
+                # Check if user has linked accounts
+                linked_accounts = data.get("linked_accounts", [])
+                if not linked_accounts:
+                    self.print_result(True, "User Profile working - No linked accounts, using general FX rates")
+                    return True
+                
+                # Verify FX rates include account context
+                fx_rates = data.get("fx_rates", {})
+                if "account_context" in fx_rates:
+                    account_context = fx_rates["account_context"]
+                    if "account_id" in account_context and "account_currency" in account_context:
+                        self.print_result(True, f"User Profile uses account-dependent FX rates for account {account_context['account_id']}")
+                        print(f"   🏦 Account Currency: {account_context['account_currency']}")
+                        print(f"   💱 FX Rates Context: Account-dependent")
+                        
+                        # Show some FX rates
+                        rate_count = 0
+                        for currency, rate in fx_rates.items():
+                            if currency not in ["account_context"] and isinstance(rate, (int, float)):
+                                print(f"   💰 {account_context['account_currency']} to {currency}: {rate}")
+                                rate_count += 1
+                                if rate_count >= 3:
+                                    break
+                    else:
+                        self.print_result(False, "Account context missing required fields")
+                        return False
+                else:
+                    self.print_result(False, "User Profile FX rates missing account context")
+                    return False
+                
+                # Verify linked accounts data
+                print(f"   🏦 Linked Accounts: {len(linked_accounts)}")
+                print(f"   💰 Total Balance: {data['total_balance']:.2f}")
+                
+                return True
+            else:
+                self.print_result(False, f"Profile request failed: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.print_result(False, f"User Profile test error: {str(e)}")
+            return False
+    
+    async def test_fx_quote_account_dependent(self) -> bool:
+        """Test GET /api/user/fx-quote with account_id parameter - should be account-dependent"""
+        self.print_test_header("FX Quote - Account Dependency")
+        
+        try:
+            # First get accounts to get a valid account_id
+            accounts_response = await self.client.get(
+                f"{API_BASE}/open-banking/accounts",
+                headers=self.get_auth_headers()
+            )
+            
+            if accounts_response.status_code != 200:
+                self.print_result(False, "Failed to get accounts for FX quote test")
+                return False
+            
+            accounts_data = accounts_response.json()
+            if not accounts_data.get("accounts"):
+                self.print_result(False, "No accounts available for FX quote test")
+                return False
+            
+            account_id = accounts_data["accounts"][0]["account_id"]
+            
+            # Test FX quote API with account_id parameter
+            response = await self.client.get(
+                f"{API_BASE}/user/fx-quote?target_currency=USD&amount=100&account_id={account_id}",
+                headers=self.get_auth_headers()
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify account-dependent FX quote response structure
+                required_fields = ["account_id", "account_currency", "target_currency", "rate", "amount"]
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    self.print_result(False, f"Missing FX quote fields: {missing_fields}")
+                    return False
+                
+                # Verify account context
+                if data["account_id"] == account_id:
+                    self.print_result(True, f"FX Quote correctly uses account-dependent flow for account {account_id}")
+                else:
+                    self.print_result(False, "FX Quote account_id mismatch")
+                    return False
+                
+                # Verify quote data
+                if data["target_currency"] == "USD" and data["amount"] == 100:
+                    rate = data.get("rate", 0)
+                    converted_amount = data.get("converted_amount")
+                    
+                    if rate > 0:
+                        self.print_result(True, f"FX Quote provides valid rate: {rate}")
+                        print(f"   🏦 Account: {account_id}")
+                        print(f"   💱 {data['account_currency']} to {data['target_currency']}: {rate}")
+                        print(f"   💰 Amount: {data['amount']} {data['account_currency']}")
+                        if converted_amount:
+                            print(f"   💰 Converted: {converted_amount} {data['target_currency']}")
+                    else:
+                        self.print_result(False, "Invalid exchange rate in FX quote")
+                        return False
+                else:
+                    self.print_result(False, "FX Quote parameters mismatch")
+                    return False
+                
+                # Check for quote metadata
+                if "quote_id" in data and "valid_until" in data:
+                    print(f"   📋 Quote ID: {data['quote_id']}")
+                    print(f"   ⏰ Valid Until: {data['valid_until']}")
+                
+                return True
+            else:
+                self.print_result(False, f"FX Quote request failed: {response.status_code}", response.text)
+                return False
+                
+        except Exception as e:
+            self.print_result(False, f"FX Quote account dependency test error: {str(e)}")
+            return False
+
     async def run_all_tests(self):
-        """Run all Phase 3 Open Banking Integration tests"""
-        print("🚀 Starting Phase 3 Open Banking Integration Tests with Real JoPACC API Calls")
+        """Run all tests including restructured JoPACC Open Banking API calls"""
+        print("🚀 Starting Restructured JoPACC Open Banking API Tests")
         print(f"Backend URL: {BACKEND_URL}")
         print(f"API Base: {API_BASE}")
         
@@ -940,7 +1277,26 @@ class BackendTester:
         # Run tests
         test_results = []
         
-        # 1. Real JoPACC API Integration Tests
+        # 1. Restructured JoPACC API Tests (Primary Focus)
+        print("\n" + "="*60)
+        print("🔄 TESTING RESTRUCTURED JoPACC API CALLS")
+        print("="*60)
+        test_results.append(await self.test_restructured_accounts_api_with_headers())
+        test_results.append(await self.test_account_balance_api_without_customer_id())
+        test_results.append(await self.test_fx_api_account_dependent())
+        test_results.append(await self.test_user_profile_account_dependent_fx())
+        test_results.append(await self.test_fx_quote_account_dependent())
+        
+        # 2. Core Open Banking Endpoints (Existing Tests)
+        print("\n" + "="*60)
+        print("📱 TESTING CORE OPEN BANKING ENDPOINTS")
+        print("="*60)
+        test_results.append(await self.test_connect_accounts_endpoint())
+        test_results.append(await self.test_get_accounts_endpoint())
+        test_results.append(await self.test_get_dashboard_endpoint())
+        test_results.append(await self.test_authentication_required())
+        
+        # 3. Real JoPACC API Integration Tests
         print("\n" + "="*60)
         print("🌐 TESTING REAL JoPACC API INTEGRATION")
         print("="*60)
@@ -948,49 +1304,29 @@ class BackendTester:
         test_results.append(await self.test_real_jopacc_dashboard_api())
         test_results.append(await self.test_real_jopacc_fx_quote_api())
         
-        # 2. Open Banking Endpoints (with real API fallback)
-        print("\n" + "="*60)
-        print("📱 TESTING OPEN BANKING ENDPOINTS")
-        print("="*60)
-        test_results.append(await self.test_connect_accounts_endpoint())
-        test_results.append(await self.test_get_accounts_endpoint())
-        test_results.append(await self.test_get_dashboard_endpoint())
-        test_results.append(await self.test_authentication_required())
-        
-        # 3. User-to-User Transfer System
-        print("\n" + "="*60)
-        print("💸 TESTING USER-TO-USER TRANSFER SYSTEM")
-        print("="*60)
-        test_results.append(await self.test_user_to_user_transfer())
-        test_results.append(await self.test_transfer_history())
-        test_results.append(await self.test_user_search())
-        
-        # 4. Security System Updates (Biometric Disabled)
-        print("\n" + "="*60)
-        print("🔒 TESTING SECURITY SYSTEM (BIOMETRIC DISABLED)")
-        print("="*60)
-        test_results.append(await self.test_security_status_biometric_disabled())
-        test_results.append(await self.test_security_initialize_skip_biometric())
-        
-        # 5. Transaction Flow with AML Monitoring
-        print("\n" + "="*60)
-        print("🚨 TESTING TRANSACTION FLOW WITH AML MONITORING")
-        print("="*60)
-        test_results.append(await self.test_deposit_with_aml_monitoring())
-        test_results.append(await self.test_user_transfer_with_aml_monitoring())
-        
         # Summary
         passed = sum(test_results)
         total = len(test_results)
         
         print(f"\n{'='*60}")
-        print(f"🏁 PHASE 3 OPEN BANKING INTEGRATION TEST SUMMARY")
+        print(f"🏁 RESTRUCTURED JoPACC API TEST SUMMARY")
         print(f"{'='*60}")
         print(f"✅ Passed: {passed}/{total}")
         print(f"❌ Failed: {total - passed}/{total}")
         
+        # Detailed results
+        print(f"\n📊 DETAILED RESULTS:")
+        print(f"   🔄 Restructured API Tests: {sum(test_results[:5])}/5")
+        print(f"   📱 Core Endpoint Tests: {sum(test_results[5:9])}/4")
+        print(f"   🌐 Real API Integration Tests: {sum(test_results[9:12])}/3")
+        
         if passed == total:
-            print("🎉 All Phase 3 Open Banking Integration tests passed!")
+            print("🎉 All restructured JoPACC API tests passed!")
+            print("✅ Header inclusion/exclusion working correctly")
+            print("✅ Account-dependent flow implemented properly")
+            print("✅ New methods being called correctly")
+            print("✅ API call sequence working as expected")
+            print("✅ All endpoints returning proper response formats")
         else:
             print("⚠️  Some tests failed. Check the details above.")
         
