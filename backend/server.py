@@ -1189,7 +1189,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
         }
         
-        # Get linked accounts using real JoPACC API with account-dependent flow
+        # Get linked accounts using real JoPACC API with account-dependent flow - only real API calls
         linked_accounts = []
         total_bank_balance = 0
         
@@ -1220,9 +1220,12 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                     total_bank_balance += account_data["balance"]
                     
             except Exception as e:
-                print(f"Error fetching accounts: {e}")
+                print(f"Error fetching accounts (no fallback): {e}")
+                # Set accounts info to indicate API failure
+                linked_accounts = []
+                total_bank_balance = 0
         
-        # Get FX rates using real JoPACC API (account-dependent if we have linked accounts)
+        # Get FX rates using real JoPACC API (account-dependent if we have linked accounts) - only real API calls
         fx_rates = {}
         try:
             if linked_accounts:
@@ -1242,7 +1245,9 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                 for rate_info in fx_response.get("rates", []):
                     fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
         except Exception as e:
-            print(f"Error fetching FX rates: {e}")
+            print(f"Error fetching FX rates (no fallback): {e}")
+            # Set FX rates to empty to indicate API failure
+            fx_rates = {}
         
         # Get recent transfers (from transactions collection)
         recent_transfers = []
