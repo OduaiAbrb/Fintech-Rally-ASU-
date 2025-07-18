@@ -700,23 +700,6 @@ class JordanOpenFinanceService:
         
         return consent_response
     
-    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
-        """Legacy method for exchange rates"""
-        fx_data = await self.get_fx_rates()
-        
-        if self.sandbox_mode:
-            rates = {}
-            for rate_info in fx_data["rates"]:
-                rates[rate_info["targetCurrency"]] = rate_info["rate"]
-            
-            return {
-                "base_currency": fx_data["baseCurrency"],
-                "rates": rates,
-                "last_updated": fx_data["lastUpdated"]
-            }
-        
-        return fx_data
-    
     async def convert_currency(self, from_currency: str, to_currency: str, amount: float) -> Dict[str, Any]:
         """Legacy method for currency conversion"""
         if from_currency != "JOD":
