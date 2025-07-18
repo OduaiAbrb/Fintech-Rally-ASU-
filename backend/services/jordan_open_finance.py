@@ -277,11 +277,97 @@ class JordanOpenFinanceService:
             else:
                 enriched_accounts.append(account)
         
-        return {
-            "accounts": enriched_accounts,
-            "totalCount": len(enriched_accounts),
-            "hasMore": accounts_response.get("hasMore", False)
-        }
+    async def get_fx_rates_for_account(self, account_id: str) -> Dict[str, Any]:
+        """Get FX rates for a specific account - FX API depends on account_id"""
+        
+        # First verify account exists by getting account details
+        try:
+            accounts_response = await self.get_accounts_new(limit=50)
+            account_exists = False
+            account_currency = "JOD"  # Default
+            
+            for account in accounts_response.get("accounts", []):
+                if account.get("accountId") == account_id:
+                    account_exists = True
+                    account_currency = account.get("currency", "JOD")
+                    break
+            
+            if not account_exists:
+                raise ValueError(f"Account {account_id} not found")
+            
+            # Now get FX rates with account context
+            fx_response = await self.get_fx_rates()
+            
+            # Enrich FX response with account information
+            return {
+                "account_id": account_id,
+                "account_currency": account_currency,
+                "fx_data": fx_response,
+                "rates_for_account": fx_response.get("rates", []),
+                "last_updated": fx_response.get("lastUpdated", datetime.utcnow().isoformat() + "Z")
+            }
+            
+        except Exception as e:
+            # If account verification fails, return basic FX data
+            print(f"Account verification failed for FX rates: {e}")
+            fx_response = await self.get_fx_rates()
+            return {
+                "account_id": account_id,
+                "account_currency": "JOD",
+                "fx_data": fx_response,
+                "rates_for_account": fx_response.get("rates", []),
+                "last_updated": fx_response.get("lastUpdated", datetime.utcnow().isoformat() + "Z"),
+                "warning": "Account verification failed, using default FX rates"
+            }
+    
+    async def get_fx_quote_for_account(self, account_id: str, target_currency: str, amount: float = None) -> Dict[str, Any]:
+        """Get FX quote for a specific account - FX API depends on account_id"""
+        
+        # First verify account exists and get account details
+        try:
+            accounts_response = await self.get_accounts_new(limit=50)
+            account_exists = False
+            account_currency = "JOD"  # Default
+            
+            for account in accounts_response.get("accounts", []):
+                if account.get("accountId") == account_id:
+                    account_exists = True
+                    account_currency = account.get("currency", "JOD")
+                    break
+            
+            if not account_exists:
+                raise ValueError(f"Account {account_id} not found")
+            
+            # Get FX quote
+            quote_response = await self.get_fx_quote(target_currency, amount)
+            
+            # Enrich quote response with account information
+            return {
+                "account_id": account_id,
+                "account_currency": account_currency,
+                "quote_data": quote_response,
+                "base_currency": quote_response.get("baseCurrency", account_currency),
+                "target_currency": target_currency,
+                "rate": quote_response.get("rate", 1.0),
+                "amount": amount,
+                "converted_amount": quote_response.get("convertedAmount"),
+                "quote_id": quote_response.get("quoteId"),
+                "valid_until": quote_response.get("validUntil"),
+                "timestamp": quote_response.get("timestamp")
+            }
+            
+        except Exception as e:
+            # If account verification fails, return basic FX quote
+            print(f"Account verification failed for FX quote: {e}")
+            quote_response = await self.get_fx_quote(target_currency, amount)
+            return {
+                "account_id": account_id,
+                "account_currency": "JOD",
+                "quote_data": quote_response,
+                **quote_response,
+                "warning": "Account verification failed, using default FX quote"
+            }
+    
     
     
     # Account Information Services (AIS) - Following JoPACC v1.0 Standards
