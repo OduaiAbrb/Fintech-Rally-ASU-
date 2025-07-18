@@ -228,7 +228,7 @@ async def register_user(user_data: UserRegistration):
         "_id": wallet_id,
         "user_id": user_id,
         "jd_balance": 0.0,
-        "stablecoin_balance": 0.0,
+        "dinarx_balance": 0.0,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
