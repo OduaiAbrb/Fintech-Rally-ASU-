@@ -251,6 +251,12 @@ async def health_check():
             "timestamp": datetime.utcnow().isoformat()
         }
 
+# API Health check endpoint
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint"""
+    return await health_check()
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
