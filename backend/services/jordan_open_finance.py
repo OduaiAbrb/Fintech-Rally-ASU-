@@ -165,13 +165,13 @@ class JordanOpenFinanceService:
         """Get account balances using real JoPACC endpoint - always calls real API"""
         
         # Real JoPACC API call with exact headers and URL you provided
+        # NOTE: x-customer-id is NOT included for balance API as per user specification
         headers = {
             "x-customer-ip-address": customer_ip,
             "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123"),
             "x-idempotency-key": str(uuid.uuid4()),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
             "x-interactions-id": str(uuid.uuid4())
