@@ -55,15 +55,17 @@ class JordanOpenFinanceService:
         
         # Real JoPACC API call with exact headers and URL you provided
         headers = {
-            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "x-idempotency-key": str(uuid.uuid4()),
-            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
             "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
-            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-customer-ip-address": "127.0.0.1",
             "x-interactions-id": str(uuid.uuid4()),
-            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123")
+            "x-customer-id": "IND_CUST_015",  # Use the specific customer ID
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
         querystring = {
@@ -87,11 +89,11 @@ class JordanOpenFinanceService:
             if response.status_code == 200:
                 # Return the actual API data
                 api_data = response.json()
-                print(f"JoPACC API Success: {api_data}")
+                print(f"JoPACC Accounts API Success: {api_data}")
                 return api_data
             else:
                 # Return error response instead of mock data
-                error_msg = f"JoPACC API Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC Accounts API Error: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
@@ -254,16 +256,30 @@ class JordanOpenFinanceService:
     async def get_fx_rates(self) -> Dict[str, Any]:
         """Get FX rates using real JoPACC endpoint - only real API calls"""
         
-        headers = await self.get_headers()
+        # Use the correct FX API endpoint as provided
+        headers = {
+            "x-customer-id": "IND_CUST_015",
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-ip-address": "127.0.0.1",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs",
+                "http://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
                 headers=headers
             )
             
             if response.status_code == 200:
                 # Return the actual API data
+                print(f"JoPACC FX API Success: {response.json()}")
                 return response.json()
             else:
                 # Return error response instead of mock data
@@ -274,24 +290,31 @@ class JordanOpenFinanceService:
     async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
         """Get FX quote using real JoPACC endpoint - only real API calls"""
         
-        # Real JoPACC API call with exact headers and URL you provided
+        # Real JoPACC FX API call with correct endpoint and IND_CUST_015
         headers = {
+            "x-customer-id": "IND_CUST_015",
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
+            "x-idempotency-key": str(uuid.uuid4()),
             "x-interactions-id": str(uuid.uuid4()),
-            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
-            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
-            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
-            "x-idempotency-key": str(uuid.uuid4())
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-ip-address": "127.0.0.1",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
+                "http://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
                 headers=headers
             )
             
             if response.status_code == 200:
                 # Process the real API response
                 fx_data = response.json()
+                print(f"JoPACC FX Quote API Success: {fx_data}")
                 
                 # Convert JoPACC FX API response to our expected format
                 if "data" in fx_data and fx_data["data"]:
@@ -335,7 +358,7 @@ class JordanOpenFinanceService:
                 raise Exception(error_msg)
             else:
                 # Return error response instead of mock data
-                error_msg = f"JoPACC FX API Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC FX Quote API Error: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
