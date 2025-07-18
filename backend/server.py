@@ -228,7 +228,7 @@ async def register_user(user_data: UserRegistration):
         "_id": wallet_id,
         "user_id": user_id,
         "jd_balance": 0.0,
-        "stablecoin_balance": 0.0,
+        "dinarx_balance": 0.0,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
@@ -301,7 +301,7 @@ async def get_wallet_balance(current_user: dict = Depends(get_current_user)):
             "_id": wallet_id,
             "user_id": current_user["_id"],
             "jd_balance": 0.0,
-            "stablecoin_balance": 0.0,
+            "dinarx_balance": 0.0,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -312,7 +312,7 @@ async def get_wallet_balance(current_user: dict = Depends(get_current_user)):
         "id": wallet["_id"],
         "user_id": wallet["user_id"],
         "jd_balance": wallet["jd_balance"],
-        "stablecoin_balance": wallet["stablecoin_balance"],
+        "dinarx_balance": wallet["dinarx_balance"],
         "created_at": wallet["created_at"],
         "updated_at": wallet["updated_at"]
     }
@@ -348,7 +348,7 @@ async def exchange_currency(
                 detail="Insufficient JD balance"
             )
     else:
-        if wallet["stablecoin_balance"] < exchange_request.amount:
+        if wallet["dinarx_balance"] < exchange_request.amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Insufficient stablecoin balance"
@@ -357,10 +357,10 @@ async def exchange_currency(
     # Perform exchange
     if exchange_request.from_currency == "JD":
         new_jd_balance = wallet["jd_balance"] - exchange_request.amount
-        new_stablecoin_balance = wallet["stablecoin_balance"] + (exchange_request.amount * exchange_rate)
+        new_dinarx_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
     else:
         new_jd_balance = wallet["jd_balance"] + (exchange_request.amount * exchange_rate)
-        new_stablecoin_balance = wallet["stablecoin_balance"] - exchange_request.amount
+        new_dinarx_balance = wallet["dinarx_balance"] - exchange_request.amount
     
     # Update wallet
     await wallets_collection.update_one(
@@ -368,7 +368,7 @@ async def exchange_currency(
         {
             "$set": {
                 "jd_balance": new_jd_balance,
-                "stablecoin_balance": new_stablecoin_balance,
+                "dinarx_balance": new_dinarx_balance,
                 "updated_at": datetime.utcnow()
             }
         }
@@ -409,7 +409,7 @@ async def exchange_currency(
         "message": "Exchange completed successfully",
         "transaction_id": transaction_id,
         "new_jd_balance": new_jd_balance,
-        "new_stablecoin_balance": new_stablecoin_balance
+        "new_dinarx_balance": new_dinarx_balance
     }
 
 @app.get("/api/transactions")
@@ -468,12 +468,12 @@ async def deposit_funds(
             }
         )
     else:
-        new_balance = wallet["stablecoin_balance"] + transaction_request.amount
+        new_balance = wallet["dinarx_balance"] + transaction_request.amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
             {
                 "$set": {
-                    "stablecoin_balance": new_balance,
+                    "dinarx_balance": new_balance,
                     "updated_at": datetime.utcnow()
                 }
             }
@@ -1077,7 +1077,7 @@ async def chat_with_hey_dinar(
         if wallet:
             context_data["wallet_balance"] = {
                 "jd_balance": wallet.get("jd_balance", 0),
-                "stablecoin_balance": wallet.get("stablecoin_balance", 0)
+                "dinarx_balance": wallet.get("dinarx_balance", 0)
             }
         
         # Get open banking data
@@ -1243,7 +1243,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         wallet = await wallets_collection.find_one({"user_id": current_user["_id"]})
         wallet_balance = {
             "jd_balance": wallet.get("jd_balance", 0) if wallet else 0,
-            "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
+            "dinarx_balance": wallet.get("dinarx_balance", 0) if wallet else 0
         }
         
         # Get linked accounts using real JoPACC API with account-dependent flow - only real API calls
@@ -1338,7 +1338,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             print(f"Error fetching transfers: {e}")
         
         # Calculate total balance
-        total_balance = total_bank_balance + wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"]
+        total_balance = total_bank_balance + wallet_balance["jd_balance"] + wallet_balance["dinarx_balance"]
         
         return {
             "user_info": user_info,
@@ -1350,7 +1350,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             "summary": {
                 "total_accounts": len(linked_accounts),
                 "total_bank_balance": total_bank_balance,
-                "wallet_total": wallet_balance["jd_balance"] + wallet_balance["stablecoin_balance"],
+                "wallet_total": wallet_balance["jd_balance"] + wallet_balance["dinarx_balance"],
                 "last_updated": datetime.utcnow().isoformat()
             }
         }
@@ -2119,7 +2119,7 @@ async def create_user_transfer(
             )
         
         # Check if sender has sufficient balance
-        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("stablecoin_balance", 0)
+        sender_balance = sender_wallet.get("jd_balance", 0) if currency == "JOD" else sender_wallet.get("dinarx_balance", 0)
         if sender_balance < amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -2134,7 +2134,7 @@ async def create_user_transfer(
                 "_id": str(uuid.uuid4()),
                 "user_id": recipient["_id"],
                 "jd_balance": 0.0,
-                "stablecoin_balance": 0.0,
+                "dinarx_balance": 0.0,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
@@ -2144,7 +2144,7 @@ async def create_user_transfer(
         transfer_id = str(uuid.uuid4())
         
         # Update sender balance
-        sender_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        sender_balance_field = "jd_balance" if currency == "JOD" else "dinarx_balance"
         new_sender_balance = sender_balance - amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
@@ -2152,7 +2152,7 @@ async def create_user_transfer(
         )
         
         # Update recipient balance
-        recipient_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        recipient_balance_field = "jd_balance" if currency == "JOD" else "dinarx_balance"
         recipient_current_balance = recipient_wallet.get(recipient_balance_field, 0)
         new_recipient_balance = recipient_current_balance + amount
         await wallets_collection.update_one(
