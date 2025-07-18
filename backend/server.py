@@ -1209,18 +1209,27 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                 accounts_response = await jof_service.get_accounts_with_balances(limit=20)
                 
                 for account in accounts_response.get("accounts", []):
+                    # Extract account info from the real JoPACC response structure
+                    account_type_info = account.get("accountType", {})
+                    available_balance_info = account.get("availableBalance", {})
+                    main_route_info = account.get("mainRoute", {})
+                    institution_info = account.get("institutionBasicInfo", {})
+                    institution_name = institution_info.get("name", {})
+                    
                     account_data = {
-                        "account_id": account["accountId"],
-                        "account_name": account["accountName"],
-                        "account_number": account["accountNumber"],
-                        "bank_name": account["bankName"],
-                        "bank_code": account["bankCode"],
-                        "account_type": account["accountType"],
-                        "currency": account["currency"],
-                        "balance": float(account["balance"]["current"]),
-                        "available_balance": float(account["balance"]["available"]),
-                        "status": account["accountStatus"],
-                        "last_updated": account["lastUpdated"],
+                        "account_id": account.get("accountId", ""),
+                        "account_name": account_type_info.get("name", "Unknown Account"),
+                        "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                        "bank_name": institution_name.get("enName", "Unknown Bank"),
+                        "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                        "account_type": account_type_info.get("code", "UNKNOWN"),
+                        "currency": account.get("accountCurrency", "JOD"),
+                        "balance": float(available_balance_info.get("balanceAmount", 0)),
+                        "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                        "status": account.get("accountStatus", "unknown"),
+                        "last_updated": account.get("lastModificationDateTime", ""),
+                        "iban": main_route_info.get("address", ""),
+                        "balance_position": available_balance_info.get("balancePosition", "credit"),
                         "detailed_balances": account.get("detailed_balances", []),
                         "balance_last_updated": account.get("balance_last_updated")
                     }
