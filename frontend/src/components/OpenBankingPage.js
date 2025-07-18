@@ -97,6 +97,28 @@ const OpenBankingPage = () => {
         <p className="mt-2 text-gray-600">
           Connect and manage all your bank accounts in one place
         </p>
+        
+        {/* API Call Sequence Information */}
+        {dashboardData?.has_linked_accounts && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-blue-600 font-semibold">🔗 Account-Dependent API Flow:</span>
+            </div>
+            <div className="text-sm text-blue-800">
+              <div className="flex items-center space-x-1">
+                <span>1️⃣</span>
+                <span className="font-medium">Accounts API</span>
+                <span className="text-blue-600">(with x-customer-id)</span>
+                <span>→</span>
+                <span className="font-medium">Balance API</span>
+                <span className="text-blue-600">(without x-customer-id)</span>
+                <span>→</span>
+                <span className="font-medium">FX API</span>
+                <span className="text-blue-600">(account-dependent)</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {!dashboardData?.has_linked_accounts ? (
