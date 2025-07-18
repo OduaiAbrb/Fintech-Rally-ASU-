@@ -27,7 +27,7 @@ class JordanOpenFinanceService:
         
         # Always use real API endpoints - no sandbox mode
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
-        self.sandbox_mode = False  # Always use real API calls
+        self.sandbox_mode = False  # Permanently disabled - only real API calls
         
     # Removed OAuth2 method - JoPACC uses direct token authentication
     # Direct token authentication is handled in get_headers() method
