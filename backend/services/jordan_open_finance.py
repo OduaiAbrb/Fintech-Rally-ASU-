@@ -277,6 +277,12 @@ class JordanOpenFinanceService:
             else:
                 enriched_accounts.append(account)
         
+        return {
+            "accounts": enriched_accounts,
+            "totalCount": len(enriched_accounts),
+            "hasMore": accounts_response.get("hasMore", False)
+        }
+        
     async def get_fx_rates_for_account(self, account_id: str) -> Dict[str, Any]:
         """Get FX rates for a specific account - FX API depends on account_id"""
         
