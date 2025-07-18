@@ -675,7 +675,7 @@ class JordanOpenFinanceService:
             return response.json()
     
     async def get_fx_quote(self, target_currency: str, amount: float = None) -> Dict[str, Any]:
-        """Get FX quote using real JoPACC endpoint - always calls real API"""
+        """Get FX quote using real JoPACC endpoint - only real API calls"""
         
         # Real JoPACC API call with exact headers and URL you provided
         headers = {
@@ -686,46 +686,28 @@ class JordanOpenFinanceService:
             "x-idempotency-key": str(uuid.uuid4())
         }
         
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
-                    headers=headers
-                )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                "https://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                # Process the real API response
+                fx_data = response.json()
                 
-                if response.status_code == 200:
-                    # If real API succeeds, process the response
-                    fx_data = response.json()
-                    
-                    # Convert JoPACC FX API response to our expected format
-                    if "data" in fx_data and fx_data["data"]:
-                        # Find the target currency in the response
-                        for fx_rate in fx_data["data"]:
-                            if fx_rate.get("targetCurrency") == target_currency:
-                                rate = fx_rate.get("conversionValue", 1.0)
-                                converted_amount = amount * rate if amount else None
-                                
-                                return {
-                                    "quoteId": str(uuid.uuid4()),
-                                    "baseCurrency": fx_rate.get("sourceCurrency", "JOD"),
-                                    "targetCurrency": target_currency,
-                                    "rate": rate,
-                                    "amount": amount,
-                                    "convertedAmount": converted_amount,
-                                    "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
-                                    "timestamp": datetime.utcnow().isoformat() + "Z"
-                                }
-                        
-                        # If target currency not found, use first available rate as fallback
-                        if fx_data["data"]:
-                            first_rate = fx_data["data"][0]
-                            rate = first_rate.get("conversionValue", 1.0)
+                # Convert JoPACC FX API response to our expected format
+                if "data" in fx_data and fx_data["data"]:
+                    # Find the target currency in the response
+                    for fx_rate in fx_data["data"]:
+                        if fx_rate.get("targetCurrency") == target_currency:
+                            rate = fx_rate.get("conversionValue", 1.0)
                             converted_amount = amount * rate if amount else None
                             
                             return {
                                 "quoteId": str(uuid.uuid4()),
-                                "baseCurrency": first_rate.get("sourceCurrency", "JOD"),
-                                "targetCurrency": first_rate.get("targetCurrency", target_currency),
+                                "baseCurrency": fx_rate.get("sourceCurrency", "JOD"),
+                                "targetCurrency": target_currency,
                                 "rate": rate,
                                 "amount": amount,
                                 "convertedAmount": converted_amount,
@@ -733,37 +715,32 @@ class JordanOpenFinanceService:
                                 "timestamp": datetime.utcnow().isoformat() + "Z"
                             }
                     
-                    # If no data in response, fall back to mock data
-                    print("JoPACC FX API returned no data, falling back to mock data")
-                else:
-                    # If real API fails, log the error and return mock data
-                    print(f"JoPACC FX API Error: {response.status_code} - {response.text}")
-                    
-        except Exception as e:
-            print(f"JoPACC FX API Exception: {str(e)}")
-        
-        # Fallback to mock FX data
-        rates = {
-            "USD": 1.41,
-            "EUR": 1.29,
-            "GBP": 1.13,
-            "SAR": 5.28,
-            "STABLECOIN": 1.0  # 1:1 for our stablecoin
-        }
-        
-        rate = rates.get(target_currency, 1.0)
-        converted_amount = amount * rate if amount else None
-        
-        return {
-            "quoteId": str(uuid.uuid4()),
-            "baseCurrency": "JOD",
-            "targetCurrency": target_currency,
-            "rate": rate,
-            "amount": amount,
-            "convertedAmount": converted_amount,
-            "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
-            "timestamp": datetime.utcnow().isoformat() + "Z"
-        }
+                    # If target currency not found, use first available rate
+                    if fx_data["data"]:
+                        first_rate = fx_data["data"][0]
+                        rate = first_rate.get("conversionValue", 1.0)
+                        converted_amount = amount * rate if amount else None
+                        
+                        return {
+                            "quoteId": str(uuid.uuid4()),
+                            "baseCurrency": first_rate.get("sourceCurrency", "JOD"),
+                            "targetCurrency": first_rate.get("targetCurrency", target_currency),
+                            "rate": rate,
+                            "amount": amount,
+                            "convertedAmount": converted_amount,
+                            "validUntil": (datetime.utcnow() + timedelta(minutes=5)).isoformat() + "Z",
+                            "timestamp": datetime.utcnow().isoformat() + "Z"
+                        }
+                
+                # If no data in response, raise error
+                error_msg = "JoPACC FX API returned no data"
+                print(error_msg)
+                raise Exception(error_msg)
+            else:
+                # Return error response instead of mock data
+                error_msg = f"JoPACC FX API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
                             currency: str = "JOD", description: str = None) -> Dict[str, Any]:
