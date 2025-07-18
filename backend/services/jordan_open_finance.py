@@ -490,12 +490,12 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
     
-    async def calculate_credit_score(self, account_id: str) -> Dict[str, Any]:
+    async def calculate_credit_score(self, account_id: str, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Calculate credit score based on account data for micro loans"""
         
         try:
             # Get account data first (use limit=20 max as per API requirements)
-            accounts_response = await self.get_accounts_new(limit=20)
+            accounts_response = await self.get_accounts_new(limit=20, customer_id=customer_id)
             account_data = None
             
             for account in accounts_response.get("data", []):
@@ -504,7 +504,7 @@ class JordanOpenFinanceService:
                     break
             
             if not account_data:
-                raise ValueError(f"Account {account_id} not found")
+                raise ValueError(f"Account {account_id} not found for customer {customer_id}")
             
             # Calculate credit score based on account information
             available_balance = account_data.get("availableBalance", {})
