@@ -49,7 +49,7 @@ class JordanOpenFinanceService:
         }
     
     async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
-                          account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
+                          account_status: str = None, sort: str = "desc", customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Get user accounts using real JoPACC endpoint - only real API calls"""
         
         # Real JoPACC API call with exact headers and URL you provided
@@ -62,7 +62,7 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-customer-ip-address": "127.0.0.1",
             "x-interactions-id": str(uuid.uuid4()),
-            "x-customer-id": "IND_CUST_015",  # Use the specific customer ID
+            "x-customer-id": customer_id,  # Use the provided customer ID
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
