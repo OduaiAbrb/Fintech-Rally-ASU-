@@ -420,7 +420,7 @@ class JordanOpenFinanceService:
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "x-customer-id": "IND_CUST_015",
             "x-customer-ip-address": "127.0.0.1",
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
