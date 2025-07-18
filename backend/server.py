@@ -1903,19 +1903,22 @@ async def validate_iban(
         account_id = iban_data.get("accountId", "")
         iban_type = iban_data.get("ibanType", "")
         iban_value = iban_data.get("ibanValue", "")
+        uid_type = iban_data.get("uidType", "CUSTOMER_ID")
+        uid_value = iban_data.get("uidValue", "IND_CUST_015")
         
-        if not all([account_type, account_id, iban_type, iban_value]):
+        if not all([account_type, account_id, iban_type, iban_value, uid_value]):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Missing required IBAN validation parameters"
             )
         
-        # Validate IBAN using JoPACC API
+        # Validate IBAN using JoPACC API with manual UID
         validation_response = await jof_service.validate_iban(
             account_type=account_type,
             account_id=account_id,
             iban_type=iban_type,
-            iban_value=iban_value
+            iban_value=iban_value,
+            customer_id=uid_value
         )
         
         return {
@@ -1924,6 +1927,8 @@ async def validate_iban(
             "validation_result": validation_response,
             "api_info": {
                 "endpoint": "JoPACC IBAN Confirmation API",
+                "customer_id": uid_value,
+                "uid_type": uid_type,
                 "validated_at": datetime.utcnow().isoformat() + "Z"
             }
         }
@@ -1935,6 +1940,8 @@ async def validate_iban(
             "error": str(e),
             "api_info": {
                 "endpoint": "JoPACC IBAN Confirmation API",
+                "customer_id": iban_data.get("uidValue", ""),
+                "uid_type": iban_data.get("uidType", ""),
                 "validated_at": datetime.utcnow().isoformat() + "Z"
             }
         }
