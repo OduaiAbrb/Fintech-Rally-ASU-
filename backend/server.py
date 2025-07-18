@@ -46,6 +46,7 @@ ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/stablecoin_db")
 client = AsyncIOMotorClient(MONGO_URL)
 database = client.get_database("stablecoin_db")
+db = database  # Alias for database
 
 # Database collections
 users_collection = database.get_collection("users")
