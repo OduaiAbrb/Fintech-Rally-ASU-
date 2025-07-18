@@ -13,6 +13,7 @@ class JordanOpenFinanceService:
     Service for integrating with Jordan Open Finance APIs (JoPACC)
     Supports AIS, PIS, FPS, and Extended Services
     Based on Jordan Open Finance Standards 2025
+    Only real API calls - no mock data fallback
     """
     
     def __init__(self):
@@ -29,9 +30,6 @@ class JordanOpenFinanceService:
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
         self.sandbox_mode = False  # Permanently disabled - only real API calls
         
-    # Removed OAuth2 method - JoPACC uses direct token authentication
-    # Direct token authentication is handled in get_headers() method
-    
     async def get_headers(self, customer_ip: str = "127.0.0.1") -> Dict[str, str]:
         """Get standard headers for real JoPACC API requests - Direct token authentication"""
         interaction_id = str(uuid.uuid4())
@@ -49,8 +47,6 @@ class JordanOpenFinanceService:
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-    
-    # Real API Endpoints based on the portal documentation
     
     async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
                           account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
@@ -162,7 +158,7 @@ class JordanOpenFinanceService:
             "totalCount": len(enriched_accounts),
             "hasMore": accounts_response.get("hasMore", False)
         }
-        
+    
     async def get_fx_rates_for_account(self, account_id: str) -> Dict[str, Any]:
         """Get FX rates for a specific account - FX API depends on account_id"""
         
@@ -254,218 +250,6 @@ class JordanOpenFinanceService:
                 "warning": "Account verification failed, using default FX quote"
             }
     
-    
-    
-    # Account Information Services (AIS) - Following JoPACC v1.0 Standards
-    async def create_account_access_consent(self, permissions: List[str], user_id: str) -> Dict[str, Any]:
-        """Create account access consent following JoPACC AIS standards - only real API calls"""
-        
-        headers = await self.get_headers()
-        consent_data = {
-            "Data": {
-                "Permissions": permissions,
-                "ExpirationDateTime": (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z",
-                "TransactionFromDateTime": datetime.utcnow().isoformat() + "Z",
-                "TransactionToDateTime": (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
-            },
-            "Risk": {}
-        }
-        
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.api_base}/open-banking/v1.0/aisp/account-access-consents",
-                headers=headers,
-                json=consent_data
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                error_msg = f"JoPACC Consent API Error: {response.status_code} - {response.text}"
-                print(error_msg)
-                raise Exception(error_msg)
-    
-    async def get_accounts(self, consent_id: str) -> List[Dict[str, Any]]:
-        """Get user accounts following JoPACC AIS v1.0 standards - only real API calls"""
-        
-        headers = await self.get_headers()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(
-                f"{self.api_base}/open-banking/v1.0/aisp/accounts",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                error_msg = f"JoPACC Accounts API Error: {response.status_code} - {response.text}"
-                print(error_msg)
-                raise Exception(error_msg)
-    
-    async def get_account_transactions(self, account_id: str, from_booking_date: Optional[datetime] = None,
-                                     to_booking_date: Optional[datetime] = None) -> Dict[str, Any]:
-        """Get account transactions following JoPACC AIS v1.0 standards"""
-        if self.sandbox_mode:
-            # Generate mock transaction data in JoPACC format
-            base_date = datetime.utcnow() - timedelta(days=30)
-            transactions = []
-            
-            mock_transactions = [
-                {"amount": "-250.00", "description": "ATM Cash Withdrawal", "merchant": "Jordan Bank ATM", "reference": "ATM001"},
-                {"amount": "1500.00", "description": "Salary Payment", "merchant": "ABC Company Ltd", "reference": "SAL001"},
-                {"amount": "-75.50", "description": "Grocery Purchase", "merchant": "Carrefour Jordan", "reference": "POS001"},
-                {"amount": "-120.00", "description": "Fuel Purchase", "merchant": "Total Jordan", "reference": "POS002"},
-                {"amount": "500.00", "description": "Money Transfer", "merchant": "Family Transfer", "reference": "TRF001"},
-                {"amount": "-45.25", "description": "Restaurant Payment", "merchant": "Fakhr El-Din Restaurant", "reference": "POS003"},
-                {"amount": "-200.00", "description": "Online Purchase", "merchant": "Amazon", "reference": "WEB001"},
-                {"amount": "-35.00", "description": "Mobile Top-up", "merchant": "Zain Jordan", "reference": "BIL001"},
-                {"amount": "2000.00", "description": "Investment Return", "merchant": "Jordan Investment Bank", "reference": "INV001"},
-                {"amount": "-150.00", "description": "Electricity Bill", "merchant": "EDCO", "reference": "BIL002"}
-            ]
-            
-            for i, tx in enumerate(mock_transactions):
-                transaction_date = base_date + timedelta(days=i*3)
-                amount = float(tx["amount"])
-                
-                transactions.append({
-                    "AccountId": account_id,
-                    "TransactionId": f"tx_{account_id}_{i+1}",
-                    "TransactionReference": tx["reference"],
-                    "Amount": {
-                        "Amount": str(abs(amount)),
-                        "Currency": "JOD"
-                    },
-                    "CreditDebitIndicator": "Credit" if amount > 0 else "Debit",
-                    "Status": "Booked",
-                    "BookingDateTime": transaction_date.isoformat() + "Z",
-                    "ValueDateTime": transaction_date.isoformat() + "Z",
-                    "TransactionInformation": tx["description"],
-                    "MerchantDetails": {
-                        "MerchantName": tx["merchant"],
-                        "MerchantCategoryCode": "5411"
-                    },
-                    "ProprietaryBankTransactionCode": {
-                        "Code": "Transfer",
-                        "Issuer": "JoPACC"
-                    }
-                })
-            
-            return {
-                "Data": {
-                    "Transaction": transactions
-                },
-                "Links": {
-                    "Self": f"/open-banking/v1.0/aisp/accounts/{account_id}/transactions"
-                }
-            }
-        
-        headers = await self.get_headers()
-        params = {}
-        if from_booking_date:
-            params["fromBookingDateTime"] = from_booking_date.isoformat() + "Z"
-        if to_booking_date:
-            params["toBookingDateTime"] = to_booking_date.isoformat() + "Z"
-        
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(
-                f"{self.api_base}/open-banking/v1.0/aisp/accounts/{account_id}/transactions",
-                headers=headers,
-                params=params
-            )
-            response.raise_for_status()
-            return response.json()
-    
-    # Payment Initiation Services (PIS) - Following JoPACC v1.0 Standards
-    async def create_payment_consent(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create payment consent following JoPACC PIS v1.0 standards"""
-        if self.sandbox_mode:
-            consent_id = f"urn:jopacc:payment-consent:{str(uuid.uuid4())}"
-            return {
-                "Data": {
-                    "ConsentId": consent_id,
-                    "Status": "AwaitingAuthorisation",
-                    "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                    "CreationDateTime": datetime.utcnow().isoformat() + "Z",
-                    "Initiation": payment_data
-                },
-                "Links": {
-                    "Self": f"/open-banking/v1.0/pisp/domestic-payment-consents/{consent_id}"
-                }
-            }
-        
-        headers = await self.get_headers()
-        consent_data = {
-            "Data": {
-                "Initiation": payment_data
-            },
-            "Risk": {
-                "PaymentContextCode": "Other"
-            }
-        }
-        
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.api_base}/open-banking/v1.0/pisp/domestic-payment-consents",
-                headers=headers,
-                json=consent_data
-            )
-            response.raise_for_status()
-            return response.json()
-    
-    async def create_payment(self, consent_id: str, payment_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create payment following JoPACC PIS v1.0 standards"""
-        if self.sandbox_mode:
-            payment_id = f"urn:jopacc:payment:{str(uuid.uuid4())}"
-            return {
-                "Data": {
-                    "DomesticPaymentId": payment_id,
-                    "ConsentId": consent_id,
-                    "Status": "AcceptedSettlementInProcess",
-                    "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                    "CreationDateTime": datetime.utcnow().isoformat() + "Z",
-                    "Initiation": payment_data
-                },
-                "Links": {
-                    "Self": f"/open-banking/v1.0/pisp/domestic-payments/{payment_id}"
-                }
-            }
-        
-        headers = await self.get_headers()
-        payment_request = {
-            "Data": {
-                "ConsentId": consent_id,
-                "Initiation": payment_data
-            }
-        }
-        
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.api_base}/open-banking/v1.0/pisp/domestic-payments",
-                headers=headers,
-                json=payment_request
-            )
-            response.raise_for_status()
-            return response.json()
-    
-    # Extended Services - FX and Additional Services
-    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
-        """Get exchange rates - Extended Service - only real API calls"""
-        
-        headers = await self.get_headers()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(
-                f"{self.api_base}/open-banking/v1.0/fx/exchange-rates",
-                headers=headers,
-                params={"baseCurrency": base_currency}
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                error_msg = f"JoPACC Exchange Rates API Error: {response.status_code} - {response.text}"
-                print(error_msg)
-                raise Exception(error_msg)
-    
     async def get_fx_rates(self) -> Dict[str, Any]:
         """Get FX rates using real JoPACC endpoint - only real API calls"""
         
@@ -554,6 +338,24 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
     
+    async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
+        """Get exchange rates - Extended Service - only real API calls"""
+        
+        headers = await self.get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_base}/open-banking/v1.0/fx/exchange-rates",
+                headers=headers,
+                params={"baseCurrency": base_currency}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_msg = f"JoPACC Exchange Rates API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
+    
     async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
                             currency: str = "JOD", description: str = None) -> Dict[str, Any]:
         """Create transfer between accounts or to wallet - only real API calls"""
@@ -581,8 +383,8 @@ class JordanOpenFinanceService:
                 error_msg = f"JoPACC Transfer API Error: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
-        
-    # Legacy methods for backward compatibility
+    
+    # Legacy methods for backward compatibility - all now use real API calls only
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
         """Legacy method - converts new format to old format"""
         accounts_response = await self.get_accounts_new()
@@ -605,23 +407,6 @@ class JordanOpenFinanceService:
             })
         return accounts
     
-    async def request_user_consent(self, user_id: str, permissions: List[str]) -> Dict[str, Any]:
-        """Legacy method - creates account access consent"""
-        consent_response = await self.create_account_access_consent(permissions, user_id)
-        
-        if self.sandbox_mode:
-            return {
-                "consent_id": consent_response["Data"]["ConsentId"],
-                "user_id": user_id,
-                "permissions": permissions,
-                "status": "granted",
-                "consent_url": f"https://sandbox.jopacc.com/consent/{consent_response['Data']['ConsentId']}",
-                "expires_at": consent_response["Data"]["ExpirationDateTime"],
-                "created_at": consent_response["Data"]["CreationDateTime"]
-            }
-        
-        return consent_response
-    
     async def convert_currency(self, from_currency: str, to_currency: str, amount: float) -> Dict[str, Any]:
         """Legacy method for currency conversion"""
         if from_currency != "JOD":
@@ -638,24 +423,3 @@ class JordanOpenFinanceService:
             "exchange_rate": quote.get("rate", 1.0),
             "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
         }
-        
-    # Removed duplicate OAuth2 methods - using direct token authentication instead
-    
-    async def get_consent_status(self, consent_id: str) -> Dict[str, Any]:
-        """Get consent status"""
-        if self.sandbox_mode:
-            return {
-                "consent_id": consent_id,
-                "status": "granted",
-                "permissions": ["ais", "pis", "fps", "fx"],
-                "expires_at": (datetime.utcnow() + timedelta(days=90)).isoformat()
-            }
-        
-        headers = await self.get_headers()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(
-                f"{self.base_url}/consent/v1/status/{consent_id}",
-                headers=headers
-            )
-            response.raise_for_status()
-            return response.json()
