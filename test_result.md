@@ -335,10 +335,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Security Dashboard Frontend Interface - COMPLETED SUCCESSFULLY"
-    - "All backend enum serialization issues resolved"
-    - "Security APIs fully functional and tested"
-    - "Frontend displaying live backend data correctly"
+    - "Manual Customer ID Support Testing - COMPLETED SUCCESSFULLY"
+    - "IBAN Validation API with UID parameters - WORKING"
+    - "Accounts API with x-customer-id header - WORKING"
+    - "Offers API with x-customer-id header - WORKING"
+    - "Loan Eligibility API with x-customer-id header - WORKING"
+    - "Loan Application API with customer_id in body - IMPLEMENTED"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
