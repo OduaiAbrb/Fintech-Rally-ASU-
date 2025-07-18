@@ -265,7 +265,7 @@ const DepositModal = ({ onClose, onSuccess, setActionLoading, actionLoading }) =
               className="form-input"
             >
               <option value="JD">Jordanian Dinar (JD)</option>
-              <option value="STABLECOIN">Stablecoin</option>
+              <option value="DINARX">DinarX</option>
             </select>
           </div>
           
