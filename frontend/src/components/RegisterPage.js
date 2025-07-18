@@ -13,8 +13,6 @@ const RegisterPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showIBANValidation, setShowIBANValidation] = useState(false);
-  const [ibanValidationResult, setIbanValidationResult] = useState(null);
   
   const { register } = useAuth();
   const navigate = useNavigate();
