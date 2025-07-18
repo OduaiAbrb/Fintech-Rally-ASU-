@@ -604,9 +604,15 @@ async def connect_accounts(current_user: dict = Depends(get_current_user)):
         )
 
 @app.get("/api/open-banking/accounts")
-async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
+async def get_linked_accounts(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
     """Get user's linked bank accounts using JoPACC AIS standards with account-dependent flow"""
     try:
+        # Get customer ID from header or use default
+        customer_id = request.headers.get("x-customer-id", "IND_CUST_015")
+        
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
         if not consent:
@@ -617,7 +623,7 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
         
         # Get accounts with balances using the new dependent flow - only real API calls
         try:
-            accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+            accounts_response = await jof_service.get_accounts_with_balances(limit=20, customer_id=customer_id)
         except Exception as api_error:
             # Return detailed error information instead of mock data
             raise HTTPException(
@@ -660,17 +666,17 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
             
             # Store/update account in database
             account_doc = {
-                "_id": account["accountId"],
+                "_id": account.get("accountId", ""),
                 "user_id": current_user["_id"],
-                "account_name": account["accountName"],
-                "account_number": account["accountNumber"],
-                "bank_name": account["bankName"],
-                "bank_code": account["bankCode"],
-                "account_type": account["accountType"],
-                "currency": account["currency"],
-                "balance": float(account["balance"]["current"]),
-                "available_balance": float(account["balance"]["available"]),
-                "status": account["accountStatus"],
+                "account_name": account_type_info.get("name", "Unknown Account"),
+                "account_number": main_route_info.get("address", "").replace("JO27CBJO", "").replace("0000000000000000", ""),
+                "bank_name": institution_name.get("enName", "Unknown Bank"),
+                "bank_code": institution_info.get("institutionIdentification", {}).get("address", ""),
+                "account_type": account_type_info.get("code", "UNKNOWN"),
+                "currency": account.get("accountCurrency", "JOD"),
+                "balance": float(available_balance_info.get("balanceAmount", 0)),
+                "available_balance": float(available_balance_info.get("balanceAmount", 0)),
+                "status": account.get("accountStatus", "unknown"),
                 "last_updated": datetime.utcnow(),
                 "jopacc_account_data": account
             }
@@ -1903,19 +1909,22 @@ async def validate_iban(
         account_id = iban_data.get("accountId", "")
         iban_type = iban_data.get("ibanType", "")
         iban_value = iban_data.get("ibanValue", "")
+        uid_type = iban_data.get("uidType", "CUSTOMER_ID")
+        uid_value = iban_data.get("uidValue", "IND_CUST_015")
         
-        if not all([account_type, account_id, iban_type, iban_value]):
+        if not all([account_type, account_id, iban_type, iban_value, uid_value]):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Missing required IBAN validation parameters"
             )
         
-        # Validate IBAN using JoPACC API
+        # Validate IBAN using JoPACC API with manual UID
         validation_response = await jof_service.validate_iban(
             account_type=account_type,
             account_id=account_id,
             iban_type=iban_type,
-            iban_value=iban_value
+            iban_value=iban_value,
+            customer_id=uid_value
         )
         
         return {
@@ -1924,6 +1933,8 @@ async def validate_iban(
             "validation_result": validation_response,
             "api_info": {
                 "endpoint": "JoPACC IBAN Confirmation API",
+                "customer_id": uid_value,
+                "uid_type": uid_type,
                 "validated_at": datetime.utcnow().isoformat() + "Z"
             }
         }
@@ -1935,33 +1946,28 @@ async def validate_iban(
             "error": str(e),
             "api_info": {
                 "endpoint": "JoPACC IBAN Confirmation API",
+                "customer_id": iban_data.get("uidValue", ""),
+                "uid_type": iban_data.get("uidType", ""),
                 "validated_at": datetime.utcnow().isoformat() + "Z"
             }
         }
 
-@app.get("/api/micro-loans/eligibility/{account_id}")
+@app.get("/api/loans/eligibility/{account_id}")
 async def get_micro_loan_eligibility(
     account_id: str,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """Get micro loan eligibility based on credit score"""
     try:
-        # Verify account belongs to user
-        linked_account = await linked_accounts_collection.find_one({
-            "_id": account_id,
-            "user_id": current_user["_id"]
-        })
-        if not linked_account:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account not found or not linked to your profile"
-            )
+        # Get customer ID from header or use default
+        customer_id = request.headers.get("x-customer-id", "IND_CUST_015")
         
         # Calculate credit score and eligibility
-        credit_info = await jof_service.calculate_credit_score(account_id)
+        credit_info = await jof_service.calculate_credit_score(account_id, customer_id)
         
         # Get available banks from accounts API
-        accounts_response = await jof_service.get_accounts_new(limit=20)
+        accounts_response = await jof_service.get_accounts_new(limit=20, customer_id=customer_id)
         available_banks = []
         
         for account in accounts_response.get("data", []):
@@ -1978,6 +1984,7 @@ async def get_micro_loan_eligibility(
         
         return {
             "account_id": account_id,
+            "customer_id": customer_id,
             "credit_score": credit_info["credit_score"],
             "eligibility": credit_info["eligibility"],
             "max_loan_amount": credit_info["max_loan_amount"],
@@ -1997,7 +2004,7 @@ async def get_micro_loan_eligibility(
             detail=f"Error calculating loan eligibility: {str(e)}"
         )
 
-@app.post("/api/micro-loans/apply")
+@app.post("/api/loans/apply")
 async def apply_for_micro_loan(
     loan_application: dict,
     current_user: dict = Depends(get_current_user)
@@ -2008,6 +2015,7 @@ async def apply_for_micro_loan(
         loan_amount = loan_application.get("loan_amount")
         selected_bank = loan_application.get("selected_bank")
         loan_term = loan_application.get("loan_term", 12)  # months
+        customer_id = loan_application.get("customer_id", "IND_CUST_015")
         
         if not all([account_id, loan_amount, selected_bank]):
             raise HTTPException(
@@ -2016,7 +2024,7 @@ async def apply_for_micro_loan(
             )
         
         # Verify eligibility
-        credit_info = await jof_service.calculate_credit_score(account_id)
+        credit_info = await jof_service.calculate_credit_score(account_id, customer_id)
         
         if loan_amount > credit_info["max_loan_amount"]:
             raise HTTPException(
@@ -2029,6 +2037,7 @@ async def apply_for_micro_loan(
             "_id": str(uuid.uuid4()),
             "user_id": current_user["_id"],
             "account_id": account_id,
+            "customer_id": customer_id,
             "loan_amount": loan_amount,
             "selected_bank": selected_bank,
             "loan_term": loan_term,

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
-import IBANValidation from './IBANValidation';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -14,8 +13,6 @@ const RegisterPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showIBANValidation, setShowIBANValidation] = useState(false);
-  const [ibanValidationResult, setIbanValidationResult] = useState(null);
   
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -69,11 +66,6 @@ const RegisterPage = () => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handleIBANValidation = (result) => {
-    setIbanValidationResult(result);
-    console.log('IBAN Validation Result:', result);
   };
 
   const handleSubmit = async (e) => {
@@ -218,40 +210,6 @@ const RegisterPage = () => {
                 <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
               )}
             </div>
-          </div>
-
-          {/* IBAN Validation Section */}
-          <div className="pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">IBAN Validation</h3>
-              <button
-                type="button"
-                onClick={() => setShowIBANValidation(!showIBANValidation)}
-                className="text-sm text-indigo-600 hover:text-indigo-500"
-              >
-                {showIBANValidation ? 'Hide' : 'Optional - Validate IBAN'}
-              </button>
-            </div>
-            
-            {showIBANValidation && (
-              <div className="mb-4">
-                <IBANValidation onValidation={handleIBANValidation} />
-              </div>
-            )}
-            
-            {ibanValidationResult && (
-              <div className={`mb-4 p-3 rounded-md ${
-                ibanValidationResult.valid
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}>
-                <p className={`text-sm font-medium ${
-                  ibanValidationResult.valid ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {ibanValidationResult.valid ? '✅ IBAN Validated Successfully' : '❌ IBAN Validation Failed'}
-                </p>
-              </div>
-            )}
           </div>
 
           {errors.submit && (
