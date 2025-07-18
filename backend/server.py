@@ -2144,7 +2144,7 @@ async def create_user_transfer(
         transfer_id = str(uuid.uuid4())
         
         # Update sender balance
-        sender_balance_field = "jd_balance" if currency == "JOD" else "stablecoin_balance"
+        sender_balance_field = "jd_balance" if currency == "JOD" else "dinarx_balance"
         new_sender_balance = sender_balance - amount
         await wallets_collection.update_one(
             {"user_id": current_user["_id"]},
