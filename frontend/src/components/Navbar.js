@@ -19,6 +19,8 @@ const Navbar = () => {
     { name: 'Wallet', path: '/wallet', icon: '💳' },
     { name: 'Transfers', path: '/transfers', icon: '💸' },
     { name: 'Open Banking', path: '/open-banking', icon: '🏦' },
+    { name: 'Offers', path: '/offers', icon: '🎁' },
+    { name: 'Micro Loans', path: '/micro-loans', icon: '💰' },
     { name: 'Hey Dinar', path: '/hey-dinar', icon: '🤖' },
     { name: 'Transactions', path: '/transactions', icon: '📈' },
     { name: 'Security', path: '/security', icon: '🔒' },

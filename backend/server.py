@@ -46,6 +46,7 @@ ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/stablecoin_db")
 client = AsyncIOMotorClient(MONGO_URL)
 database = client.get_database("stablecoin_db")
+db = database  # Alias for database
 
 # Database collections
 users_collection = database.get_collection("users")
@@ -1829,6 +1830,235 @@ async def get_risk_dashboard(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching risk dashboard: {str(e)}"
+        )
+
+@app.get("/api/open-banking/accounts/{account_id}/offers")
+async def get_account_offers(
+    account_id: str,
+    product_id: str = None,
+    skip: int = 0,
+    limit: int = 10,
+    sort: str = "desc",
+    current_user: dict = Depends(get_current_user)
+):
+    """Get account offers using JoPACC Offers API - account-dependent"""
+    try:
+        # Get user's consent
+        consent = await consents_collection.find_one({"user_id": current_user["_id"]})
+        if not consent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No banking consent found"
+            )
+        
+        # Verify account belongs to user
+        linked_account = await linked_accounts_collection.find_one({
+            "_id": account_id,
+            "user_id": current_user["_id"]
+        })
+        if not linked_account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found or not linked to your profile"
+            )
+        
+        # Get offers from JoPACC API
+        offers_response = await jof_service.get_account_offers(
+            account_id=account_id,
+            product_id=product_id,
+            skip=skip,
+            limit=limit,
+            sort=sort
+        )
+        
+        return {
+            "account_id": account_id,
+            "offers": offers_response.get("data", []),
+            "pagination": {
+                "skip": skip,
+                "limit": limit,
+                "total": len(offers_response.get("data", []))
+            },
+            "api_info": {
+                "endpoint": "JoPACC Offers API",
+                "account_dependent": True,
+                "customer_id": "IND_CUST_015"
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching offers: {str(e)}"
+        )
+
+@app.post("/api/auth/validate-iban")
+async def validate_iban(
+    iban_data: dict
+):
+    """Validate IBAN using JoPACC IBAN Confirmation API"""
+    try:
+        # Extract IBAN validation parameters
+        account_type = iban_data.get("accountType", "")
+        account_id = iban_data.get("accountId", "")
+        iban_type = iban_data.get("ibanType", "")
+        iban_value = iban_data.get("ibanValue", "")
+        
+        if not all([account_type, account_id, iban_type, iban_value]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required IBAN validation parameters"
+            )
+        
+        # Validate IBAN using JoPACC API
+        validation_response = await jof_service.validate_iban(
+            account_type=account_type,
+            account_id=account_id,
+            iban_type=iban_type,
+            iban_value=iban_value
+        )
+        
+        return {
+            "valid": True,
+            "iban_value": iban_value,
+            "validation_result": validation_response,
+            "api_info": {
+                "endpoint": "JoPACC IBAN Confirmation API",
+                "validated_at": datetime.utcnow().isoformat() + "Z"
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "valid": False,
+            "iban_value": iban_data.get("ibanValue", ""),
+            "error": str(e),
+            "api_info": {
+                "endpoint": "JoPACC IBAN Confirmation API",
+                "validated_at": datetime.utcnow().isoformat() + "Z"
+            }
+        }
+
+@app.get("/api/micro-loans/eligibility/{account_id}")
+async def get_micro_loan_eligibility(
+    account_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get micro loan eligibility based on credit score"""
+    try:
+        # Verify account belongs to user
+        linked_account = await linked_accounts_collection.find_one({
+            "_id": account_id,
+            "user_id": current_user["_id"]
+        })
+        if not linked_account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found or not linked to your profile"
+            )
+        
+        # Calculate credit score and eligibility
+        credit_info = await jof_service.calculate_credit_score(account_id)
+        
+        # Get available banks from accounts API
+        accounts_response = await jof_service.get_accounts_new(limit=20)
+        available_banks = []
+        
+        for account in accounts_response.get("data", []):
+            institution_info = account.get("institutionBasicInfo", {})
+            bank_name = institution_info.get("name", {}).get("enName", "Unknown Bank")
+            bank_code = institution_info.get("institutionIdentification", {}).get("address", "")
+            
+            if bank_name not in [bank["name"] for bank in available_banks]:
+                available_banks.append({
+                    "name": bank_name,
+                    "code": bank_code,
+                    "type": "BANK"
+                })
+        
+        return {
+            "account_id": account_id,
+            "credit_score": credit_info["credit_score"],
+            "eligibility": credit_info["eligibility"],
+            "max_loan_amount": credit_info["max_loan_amount"],
+            "eligible_for_loan": credit_info["max_loan_amount"] > 0,
+            "available_banks": available_banks,
+            "account_info": {
+                "balance": credit_info["balance_amount"],
+                "status": credit_info["account_status"],
+                "type": credit_info["account_type"]
+            },
+            "calculated_at": credit_info["calculated_at"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error calculating loan eligibility: {str(e)}"
+        )
+
+@app.post("/api/micro-loans/apply")
+async def apply_for_micro_loan(
+    loan_application: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Apply for micro loan"""
+    try:
+        account_id = loan_application.get("account_id")
+        loan_amount = loan_application.get("loan_amount")
+        selected_bank = loan_application.get("selected_bank")
+        loan_term = loan_application.get("loan_term", 12)  # months
+        
+        if not all([account_id, loan_amount, selected_bank]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required loan application parameters"
+            )
+        
+        # Verify eligibility
+        credit_info = await jof_service.calculate_credit_score(account_id)
+        
+        if loan_amount > credit_info["max_loan_amount"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Loan amount exceeds maximum eligible amount of {credit_info['max_loan_amount']} JOD"
+            )
+        
+        # Create loan application
+        loan_application_doc = {
+            "_id": str(uuid.uuid4()),
+            "user_id": current_user["_id"],
+            "account_id": account_id,
+            "loan_amount": loan_amount,
+            "selected_bank": selected_bank,
+            "loan_term": loan_term,
+            "credit_score": credit_info["credit_score"],
+            "eligibility": credit_info["eligibility"],
+            "status": "pending",
+            "applied_at": datetime.utcnow(),
+            "interest_rate": 8.5,  # Fixed rate for now
+            "monthly_payment": loan_amount * (1 + 0.085) / loan_term
+        }
+        
+        # Store in database (assuming we have a micro_loans collection)
+        await db.micro_loans.insert_one(loan_application_doc)
+        
+        return {
+            "application_id": loan_application_doc["_id"],
+            "status": "pending",
+            "loan_amount": loan_amount,
+            "selected_bank": selected_bank,
+            "loan_term": loan_term,
+            "estimated_monthly_payment": loan_application_doc["monthly_payment"],
+            "interest_rate": loan_application_doc["interest_rate"],
+            "applied_at": loan_application_doc["applied_at"],
+            "message": "Loan application submitted successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing loan application: {str(e)}"
         )
 
 # User-to-User Transfer API Endpoints

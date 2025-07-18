@@ -12,6 +12,8 @@ import HeyDinarPage from './components/HeyDinarPage';
 import UserProfilePage from './components/UserProfilePage';
 import TransferPage from './components/TransferPage';
 import SecurityDashboard from './components/SecurityDashboard';
+import OffersPage from './components/OffersPage';
+import MicroLoansPage from './components/MicroLoansPage';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -129,6 +131,26 @@ function App() {
                   <Navbar />
                   <main className="flex-1 overflow-auto">
                     <SecurityDashboard />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/offers" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <OffersPage />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/micro-loans" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <MicroLoansPage />
                   </main>
                 </div>
               </ProtectedRoute>
