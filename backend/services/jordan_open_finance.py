@@ -253,16 +253,30 @@ class JordanOpenFinanceService:
     async def get_fx_rates(self) -> Dict[str, Any]:
         """Get FX rates using real JoPACC endpoint - only real API calls"""
         
-        headers = await self.get_headers()
+        # Use the correct FX API endpoint as provided
+        headers = {
+            "x-customer-id": "IND_CUST_015",
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "x-idempotency-key": str(uuid.uuid4()),
+            "x-interactions-id": str(uuid.uuid4()),
+            "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-ip-address": "127.0.0.1",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.api_base}/gateway/Foreign%20Exchange/v1.3/institution/FXs",
+                "http://jpcjofsdev.apigw-az-eu.webmethods.io/gateway/Foreign%20Exchange%20%28FX%29/v0.4.3/institution/FXs",
                 headers=headers
             )
             
             if response.status_code == 200:
                 # Return the actual API data
+                print(f"JoPACC FX API Success: {response.json()}")
                 return response.json()
             else:
                 # Return error response instead of mock data
