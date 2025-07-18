@@ -1998,7 +1998,7 @@ async def get_micro_loan_eligibility(
             detail=f"Error calculating loan eligibility: {str(e)}"
         )
 
-@app.post("/api/micro-loans/apply")
+@app.post("/api/loans/apply")
 async def apply_for_micro_loan(
     loan_application: dict,
     current_user: dict = Depends(get_current_user)
@@ -2009,6 +2009,7 @@ async def apply_for_micro_loan(
         loan_amount = loan_application.get("loan_amount")
         selected_bank = loan_application.get("selected_bank")
         loan_term = loan_application.get("loan_term", 12)  # months
+        customer_id = loan_application.get("customer_id", "IND_CUST_015")
         
         if not all([account_id, loan_amount, selected_bank]):
             raise HTTPException(
@@ -2017,7 +2018,7 @@ async def apply_for_micro_loan(
             )
         
         # Verify eligibility
-        credit_info = await jof_service.calculate_credit_score(account_id)
+        credit_info = await jof_service.calculate_credit_score(account_id, customer_id)
         
         if loan_amount > credit_info["max_loan_amount"]:
             raise HTTPException(
@@ -2030,6 +2031,7 @@ async def apply_for_micro_loan(
             "_id": str(uuid.uuid4()),
             "user_id": current_user["_id"],
             "account_id": account_id,
+            "customer_id": customer_id,
             "loan_amount": loan_amount,
             "selected_bank": selected_bank,
             "loan_term": loan_term,
