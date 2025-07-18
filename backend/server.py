@@ -360,7 +360,7 @@ async def exchange_currency(
         new_dinarx_balance = wallet["dinarx_balance"] + (exchange_request.amount * exchange_rate)
     else:
         new_jd_balance = wallet["jd_balance"] + (exchange_request.amount * exchange_rate)
-        new_stablecoin_balance = wallet["dinarx_balance"] - exchange_request.amount
+        new_dinarx_balance = wallet["dinarx_balance"] - exchange_request.amount
     
     # Update wallet
     await wallets_collection.update_one(
