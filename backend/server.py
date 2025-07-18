@@ -76,6 +76,9 @@ risk_service = RiskScoringService(MONGO_URL)
 async def migrate_wallet_fields():
     """Migrate wallet documents from stablecoin_balance to dinarx_balance"""
     try:
+        # Test database connection first
+        await database.list_collection_names()
+        
         # Find all wallets that have stablecoin_balance but not dinarx_balance
         wallets_to_migrate = await wallets_collection.find({
             "stablecoin_balance": {"$exists": True},
@@ -97,10 +100,12 @@ async def migrate_wallet_fields():
                 }
             )
         
-        print(f"Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
+        print(f"✅ Migrated {len(wallets_to_migrate)} wallet documents to use dinarx_balance")
         
     except Exception as e:
-        print(f"Error during wallet migration: {e}")
+        print(f"❌ Error during wallet migration: {e}")
+        # Don't fail the startup due to migration issues
+        pass
 
 # Run migration on startup
 @app.on_event("startup")
