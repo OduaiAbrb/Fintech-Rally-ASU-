@@ -49,7 +49,7 @@ const OffersPage = () => {
     setError(null);
     
     try {
-      const response = await api.get(`/api/open-banking/accounts/${accountId}/offers`, {
+      const response = await api.get(`/open-banking/accounts/${accountId}/offers`, {
         headers: {
           'x-customer-id': customerId
         }
