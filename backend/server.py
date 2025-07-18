@@ -681,7 +681,7 @@ async def get_account_balance(
     account_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get specific account balance"""
+    """Get specific account balance - depends on account_id from accounts API"""
     try:
         # Get user's consent
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
@@ -702,7 +702,23 @@ async def get_account_balance(
                 detail="Account not found or not linked to your profile"
             )
         
-        balance = await jof_service.get_account_balance(account_id, consent["_id"])
+        # Use the new account-dependent balance API (without x-customer-id)
+        balance_response = await jof_service.get_account_balances(account_id)
+        
+        # Convert to legacy format for frontend compatibility
+        balance = {
+            "account_id": account_id,
+            "balance": balance_response.get("balances", [{}])[0].get("amount", 0.0),
+            "available_balance": balance_response.get("balances", [{}])[0].get("amount", 0.0),
+            "currency": balance_response.get("balances", [{}])[0].get("currency", "JOD"),
+            "last_updated": balance_response.get("balances", [{}])[0].get("lastUpdated", datetime.utcnow().isoformat() + "Z"),
+            "detailed_balances": balance_response.get("balances", []),
+            "api_call_info": {
+                "method": "get_account_balances",
+                "includes_x_customer_id": False,
+                "depends_on_account_id": True
+            }
+        }
         
         # Update stored balance
         await linked_accounts_collection.update_one(
