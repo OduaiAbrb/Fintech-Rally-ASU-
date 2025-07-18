@@ -292,9 +292,9 @@ class JordanOpenFinanceService:
         # Real JoPACC FX API call with correct endpoint and IND_CUST_015
         headers = {
             "x-customer-id": "IND_CUST_015",
-            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
-            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
-            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
+            "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
+            "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
+            "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
             "x-idempotency-key": str(uuid.uuid4()),
             "x-interactions-id": str(uuid.uuid4()),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
