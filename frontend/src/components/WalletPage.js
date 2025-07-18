@@ -158,7 +158,7 @@ const WalletPage = () => {
             </div>
             <h3 className="font-semibold text-gray-900 mb-2">Exchange</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Convert between JD and Stablecoin
+              Convert between JD and DinarX
             </p>
             <button
               onClick={() => setShowExchangeModal(true)}
