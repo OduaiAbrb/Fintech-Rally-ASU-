@@ -123,7 +123,7 @@ class HeyDinarAI:
         dinarx_balance = wallet_balance.get('dinarx_balance', 0)
         
         response = f"Here's your current balance overview:\n\n"
-        response += f"💰 **Your Stablecoin Wallet:**\n"
+        response += f"💰 **Your DinarX Wallet:**\n"
         response += f"• JD Balance: {jd_balance:.2f} JOD\n"
         response += f"• DinarX Balance: {dinarx_balance:.2f} DINARX\n\n"
         
