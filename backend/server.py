@@ -2134,7 +2134,7 @@ async def create_user_transfer(
                 "_id": str(uuid.uuid4()),
                 "user_id": recipient["_id"],
                 "jd_balance": 0.0,
-                "stablecoin_balance": 0.0,
+                "dinarx_balance": 0.0,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
