@@ -110,8 +110,8 @@ class TransactionCreate(BaseModel):
     description: Optional[str] = None
 
 class ExchangeRequest(BaseModel):
-    from_currency: str  # 'JD' or 'STABLECOIN'
-    to_currency: str    # 'JD' or 'STABLECOIN'
+    from_currency: str  # 'JD' or 'DINARX'
+    to_currency: str    # 'JD' or 'DINARX'
     amount: float
 
 class ConsentRequest(BaseModel):
