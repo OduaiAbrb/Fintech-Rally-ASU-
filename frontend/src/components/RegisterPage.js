@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
+import IBANValidation from './IBANValidation';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ const RegisterPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showIBANValidation, setShowIBANValidation] = useState(false);
+  const [ibanValidationResult, setIbanValidationResult] = useState(null);
   
   const { register } = useAuth();
   const navigate = useNavigate();
