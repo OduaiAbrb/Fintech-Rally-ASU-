@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../utils/api';
+import api from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 
 const MicroLoansPage = () => {
@@ -16,15 +16,22 @@ const MicroLoansPage = () => {
   const [loanTerm, setLoanTerm] = useState('12');
   const [selectedBank, setSelectedBank] = useState('');
   const [showApplication, setShowApplication] = useState(false);
+  const [customerId, setCustomerId] = useState('IND_CUST_015');
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [customerId]);
 
   const fetchAccounts = async () => {
     try {
-      const response = await api.get('/api/open-banking/accounts');
+      setLoading(true);
+      const response = await api.get('/open-banking/accounts', {
+        headers: {
+          'x-customer-id': customerId
+        }
+      });
       setAccounts(response.data.accounts || []);
     } catch (err) {
       setError('Failed to fetch accounts');
@@ -42,7 +49,11 @@ const MicroLoansPage = () => {
     setSuccess(null);
     
     try {
-      const response = await api.get(`/api/micro-loans/eligibility/${accountId}`);
+      const response = await api.get(`/loans/eligibility/${accountId}`, {
+        headers: {
+          'x-customer-id': customerId
+        }
+      });
       setEligibilityData(response.data);
       setShowApplication(response.data.eligible_for_loan);
     } catch (err) {
@@ -64,6 +75,15 @@ const MicroLoansPage = () => {
     }
   };
 
+  const handleCustomerIdChange = (e) => {
+    e.preventDefault();
+    setShowCustomerForm(false);
+    setSelectedAccount('');
+    setEligibilityData(null);
+    setShowApplication(false);
+    fetchAccounts();
+  };
+
   const applyForLoan = async (e) => {
     e.preventDefault();
     
@@ -82,11 +102,12 @@ const MicroLoansPage = () => {
     setError(null);
     
     try {
-      const response = await api.post('/api/micro-loans/apply', {
+      const response = await api.post('/loans/apply', {
         account_id: selectedAccount,
         loan_amount: amount,
         selected_bank: selectedBank,
-        loan_term: parseInt(loanTerm)
+        loan_term: parseInt(loanTerm),
+        customer_id: customerId
       });
       
       setSuccess(`Loan application submitted successfully! Application ID: ${response.data.application_id}`);
@@ -140,6 +161,42 @@ const MicroLoansPage = () => {
           <p className="mt-2 text-gray-600">
             Quick access to small loans with AI-powered approval based on your account data
           </p>
+          
+          {/* Customer ID Management */}
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-600 font-semibold">🎯 JoPACC Customer ID</span>
+                <span className="text-sm text-blue-800">Current: {customerId}</span>
+              </div>
+              <button
+                onClick={() => setShowCustomerForm(!showCustomerForm)}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                {showCustomerForm ? 'Cancel' : 'Change Customer ID'}
+              </button>
+            </div>
+            
+            {showCustomerForm && (
+              <form onSubmit={handleCustomerIdChange} className="mt-3">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={customerId}
+                    onChange={(e) => setCustomerId(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter customer ID (e.g., IND_CUST_015)"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Update
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Account Selection */}
@@ -374,8 +431,11 @@ const MicroLoansPage = () => {
             <p className="text-gray-600 mb-4">
               Connect your bank accounts to check loan eligibility.
             </p>
-            <button className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200">
-              Connect Accounts
+            <button 
+              onClick={() => setShowCustomerForm(true)}
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              Update Customer ID
             </button>
           </div>
         )}

@@ -50,7 +50,7 @@ class JordanOpenFinanceService:
         }
     
     async def get_accounts_new(self, skip: int = 0, account_type: str = None, limit: int = 10, 
-                          account_status: str = None, sort: str = "desc") -> Dict[str, Any]:
+                          account_status: str = None, sort: str = "desc", customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Get user accounts using real JoPACC endpoint - only real API calls"""
         
         # Real JoPACC API call with exact headers and URL you provided
@@ -63,7 +63,7 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-customer-ip-address": "127.0.0.1",
             "x-interactions-id": str(uuid.uuid4()),
-            "x-customer-id": "IND_CUST_015",  # Use the specific customer ID
+            "x-customer-id": customer_id,  # Use the provided customer ID
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
@@ -128,11 +128,11 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
         
-    async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10) -> Dict[str, Any]:
+    async def get_accounts_with_balances(self, skip: int = 0, limit: int = 10, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Get accounts and their balances in a single dependent call flow"""
         
         # First, get all accounts (this API includes x-customer-id)
-        accounts_response = await self.get_accounts_new(skip=skip, limit=limit)
+        accounts_response = await self.get_accounts_new(skip=skip, limit=limit, customer_id=customer_id)
         
         # Extract account IDs from the response - JoPACC API returns data in "data" field
         enriched_accounts = []
@@ -451,10 +451,10 @@ class JordanOpenFinanceService:
                 print(error_msg)
                 raise Exception(error_msg)
     
-    async def validate_iban(self, account_type: str, account_id: str, iban_type: str, iban_value: str) -> Dict[str, Any]:
+    async def validate_iban(self, account_type: str, account_id: str, iban_type: str, iban_value: str, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Validate IBAN using JoPACC IBAN Confirmation API"""
         
-        # Real JoPACC IBAN Confirmation API call
+        # Real JoPACC IBAN Confirmation API call with customer ID
         headers = {
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
             "x-interactions-id": str(uuid.uuid4()),
@@ -462,6 +462,7 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "x-customer-id": customer_id,  # Use provided customer ID
             "accountId": account_id,  # Add accountId header as required
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -483,19 +484,19 @@ class JordanOpenFinanceService:
             )
             
             if response.status_code == 200:
-                print(f"JoPACC IBAN Validation Success: {response.json()}")
+                print(f"JoPACC IBAN Validation Success for customer {customer_id}: {response.json()}")
                 return response.json()
             else:
-                error_msg = f"JoPACC IBAN Validation Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC IBAN Validation Error for customer {customer_id}: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
-    async def calculate_credit_score(self, account_id: str) -> Dict[str, Any]:
+    async def calculate_credit_score(self, account_id: str, customer_id: str = "IND_CUST_015") -> Dict[str, Any]:
         """Calculate credit score based on account data for micro loans"""
         
         try:
             # Get account data first (use limit=20 max as per API requirements)
-            accounts_response = await self.get_accounts_new(limit=20)
+            accounts_response = await self.get_accounts_new(limit=20, customer_id=customer_id)
             account_data = None
             
             for account in accounts_response.get("data", []):
@@ -504,7 +505,7 @@ class JordanOpenFinanceService:
                     break
             
             if not account_data:
-                raise ValueError(f"Account {account_id} not found")
+                raise ValueError(f"Account {account_id} not found for customer {customer_id}")
             
             # Calculate credit score based on account information
             available_balance = account_data.get("availableBalance", {})

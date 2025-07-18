@@ -14,6 +14,7 @@ import TransferPage from './components/TransferPage';
 import SecurityDashboard from './components/SecurityDashboard';
 import OffersPage from './components/OffersPage';
 import MicroLoansPage from './components/MicroLoansPage';
+import IBANValidation from './components/IBANValidation';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -151,6 +152,16 @@ function App() {
                   <Navbar />
                   <main className="flex-1 overflow-auto">
                     <MicroLoansPage />
+                  </main>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/iban-validation" element={
+              <ProtectedRoute>
+                <div className="flex flex-col h-screen">
+                  <Navbar />
+                  <main className="flex-1 overflow-auto">
+                    <IBANValidation />
                   </main>
                 </div>
               </ProtectedRoute>
