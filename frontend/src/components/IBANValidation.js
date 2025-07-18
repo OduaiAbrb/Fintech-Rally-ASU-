@@ -27,7 +27,7 @@ const IBANValidation = () => {
     setValidationResult(null);
 
     try {
-      const response = await api.post('/api/auth/validate-iban', ibanData);
+      const response = await api.post('/auth/validate-iban', ibanData);
       setValidationResult(response.data);
     } catch (err) {
       setError('Failed to validate IBAN');
