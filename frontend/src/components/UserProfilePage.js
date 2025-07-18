@@ -116,7 +116,7 @@ const UserProfilePage = () => {
             {formatCurrency(profileData?.wallet_balance?.jd_balance || 0, 'JD')}
           </p>
           <p className="text-green-100 text-sm mt-2">
-            + {formatCurrency(profileData?.wallet_balance?.stablecoin_balance || 0, 'STABLECOIN')}
+            + {formatCurrency(profileData?.wallet_balance?.dinarx_balance || 0, 'DINARX')}
           </p>
         </div>
 
