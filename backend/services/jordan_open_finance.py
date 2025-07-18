@@ -493,8 +493,8 @@ class JordanOpenFinanceService:
         """Calculate credit score based on account data for micro loans"""
         
         try:
-            # Get account data first
-            accounts_response = await self.get_accounts_new(limit=50)
+            # Get account data first (use limit=20 max as per API requirements)
+            accounts_response = await self.get_accounts_new(limit=20)
             account_data = None
             
             for account in accounts_response.get("data", []):
