@@ -383,12 +383,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Manual Customer ID Support Testing - COMPLETED SUCCESSFULLY"
-    - "IBAN Validation API with UID parameters - WORKING"
-    - "Accounts API with x-customer-id header - WORKING"
-    - "Offers API with x-customer-id header - WORKING"
-    - "Loan Eligibility API with x-customer-id header - WORKING"
-    - "Loan Application API with customer_id in body - IMPLEMENTED"
+    - "Frontend Manual Customer ID Support Testing - COMPLETED SUCCESSFULLY"
+    - "IBAN Validation Frontend Component - WORKING"
+    - "Offers Page Enhanced with Manual Customer ID - WORKING"
+    - "Micro Loans Page Enhanced with Manual Customer ID - WORKING"
+    - "Navigation Enhancement with IBAN Validation Link - WORKING"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
