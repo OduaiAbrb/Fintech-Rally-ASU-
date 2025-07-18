@@ -62,7 +62,9 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-customer-ip-address": "127.0.0.1",
             "x-interactions-id": str(uuid.uuid4()),
-            "x-customer-id": os.getenv("JOPACC_CUSTOMER_ID", "customer_123")
+            "x-customer-id": "IND_CUST_015",  # Use the specific customer ID
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         
         querystring = {
@@ -86,11 +88,11 @@ class JordanOpenFinanceService:
             if response.status_code == 200:
                 # Return the actual API data
                 api_data = response.json()
-                print(f"JoPACC API Success: {api_data}")
+                print(f"JoPACC Accounts API Success: {api_data}")
                 return api_data
             else:
                 # Return error response instead of mock data
-                error_msg = f"JoPACC API Error: {response.status_code} - {response.text}"
+                error_msg = f"JoPACC Accounts API Error: {response.status_code} - {response.text}"
                 print(error_msg)
                 raise Exception(error_msg)
     
