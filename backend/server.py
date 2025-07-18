@@ -22,7 +22,7 @@ from services.risk_scoring import RiskScoringService
 load_dotenv()
 
 # Initialize FastAPI app
-app = FastAPI(title="Stablecoin Fintech Platform", version="1.0.0")
+app = FastAPI(title="Finjo DinarX Platform", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -88,7 +88,7 @@ class WalletBalance(BaseModel):
     id: str
     user_id: str
     jd_balance: float = 0.0
-    stablecoin_balance: float = 0.0
+    dinarx_balance: float = 0.0
     created_at: datetime
     updated_at: datetime
 
@@ -97,7 +97,7 @@ class Transaction(BaseModel):
     user_id: str
     transaction_type: str  # 'deposit', 'withdrawal', 'transfer', 'exchange'
     amount: float
-    currency: str  # 'JD' or 'STABLECOIN'
+    currency: str  # 'JD' or 'DINARX'
     status: str  # 'pending', 'completed', 'failed'
     description: Optional[str] = None
     created_at: datetime
@@ -110,8 +110,8 @@ class TransactionCreate(BaseModel):
     description: Optional[str] = None
 
 class ExchangeRequest(BaseModel):
-    from_currency: str  # 'JD' or 'STABLECOIN'
-    to_currency: str    # 'JD' or 'STABLECOIN'
+    from_currency: str  # 'JD' or 'DINARX'
+    to_currency: str    # 'JD' or 'DINARX'
     amount: float
 
 class ConsentRequest(BaseModel):

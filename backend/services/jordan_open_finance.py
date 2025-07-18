@@ -39,7 +39,7 @@ class JordanOpenFinanceService:
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-customer-ip-address": customer_ip,
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-interactions-id": interaction_id,
             "x-idempotency-key": str(uuid.uuid4()),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
@@ -59,7 +59,7 @@ class JordanOpenFinanceService:
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "x-idempotency-key": str(uuid.uuid4()),
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "1"),
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-customer-ip-address": "127.0.0.1",
             "x-interactions-id": str(uuid.uuid4()),
@@ -104,7 +104,7 @@ class JordanOpenFinanceService:
         # NOTE: x-customer-id is NOT included for balance API as per user specification
         headers = {
             "x-customer-ip-address": customer_ip,
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -265,7 +265,7 @@ class JordanOpenFinanceService:
             "x-idempotency-key": str(uuid.uuid4()),
             "x-interactions-id": str(uuid.uuid4()),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-customer-ip-address": "127.0.0.1",
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -299,7 +299,7 @@ class JordanOpenFinanceService:
             "x-idempotency-key": str(uuid.uuid4()),
             "x-interactions-id": str(uuid.uuid4()),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-customer-ip-address": "127.0.0.1",
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -421,7 +421,7 @@ class JordanOpenFinanceService:
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "x-customer-id": "IND_CUST_015",
             "x-customer-ip-address": "127.0.0.1",
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }

@@ -65,7 +65,7 @@ const WalletPage = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Your Wallet</h1>
         <p className="mt-2 text-gray-600">
-          Manage your JD and Stablecoin balances
+          Manage your JD and DinarX balances
         </p>
       </div>
 
@@ -84,7 +84,7 @@ const WalletPage = () => {
             </div>
           </div>
           <div className="exchange-rate">
-            <p className="text-sm">1 JD = 1 Stablecoin</p>
+            <p className="text-sm">1 JD = 1 DinarX</p>
           </div>
           <div className="quick-actions">
             <button
@@ -105,9 +105,9 @@ const WalletPage = () => {
         <div className="balance-card-secondary">
           <div className="flex items-center justify-between">
             <div>
-              <p className="balance-label">Stablecoin Balance</p>
+              <p className="balance-label">DinarX Balance</p>
               <p className="balance-display">
-                {formatCurrency(wallet?.stablecoin_balance || 0, 'STABLECOIN')}
+                {formatCurrency(wallet?.dinarx_balance || 0, 'DINARX')}
               </p>
             </div>
             <div className="text-white text-3xl opacity-80">
@@ -158,7 +158,7 @@ const WalletPage = () => {
             </div>
             <h3 className="font-semibold text-gray-900 mb-2">Exchange</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Convert between JD and Stablecoin
+              Convert between JD and DinarX
             </p>
             <button
               onClick={() => setShowExchangeModal(true)}
@@ -265,7 +265,7 @@ const DepositModal = ({ onClose, onSuccess, setActionLoading, actionLoading }) =
               className="form-input"
             >
               <option value="JD">Jordanian Dinar (JD)</option>
-              <option value="STABLECOIN">Stablecoin</option>
+              <option value="DINARX">DinarX</option>
             </select>
           </div>
           
@@ -323,7 +323,7 @@ const DepositModal = ({ onClose, onSuccess, setActionLoading, actionLoading }) =
 // Exchange Modal Component
 const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoading }) => {
   const [fromCurrency, setFromCurrency] = useState('JD');
-  const [toCurrency, setToCurrency] = useState('STABLECOIN');
+  const [toCurrency, setToCurrency] = useState('DINARX');
   const [amount, setAmount] = useState('');
 
   const handleSubmit = async (e) => {
@@ -350,7 +350,7 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
     }
   };
 
-  const maxAmount = fromCurrency === 'JD' ? wallet?.jd_balance || 0 : wallet?.stablecoin_balance || 0;
+  const maxAmount = fromCurrency === 'JD' ? wallet?.jd_balance || 0 : wallet?.dinarx_balance || 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -366,12 +366,12 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
               value={fromCurrency}
               onChange={(e) => {
                 setFromCurrency(e.target.value);
-                setToCurrency(e.target.value === 'JD' ? 'STABLECOIN' : 'JD');
+                setToCurrency(e.target.value === 'JD' ? 'DINARX' : 'JD');
               }}
               className="form-input"
             >
               <option value="JD">Jordanian Dinar (JD)</option>
-              <option value="STABLECOIN">Stablecoin</option>
+              <option value="DINARX">DinarX</option>
             </select>
             <p className="text-sm text-gray-500 mt-1">
               Available: {formatCurrency(maxAmount, fromCurrency)}
@@ -388,7 +388,7 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
               className="form-input"
             >
               <option value="JD">Jordanian Dinar (JD)</option>
-              <option value="STABLECOIN">Stablecoin</option>
+              <option value="DINARX">DinarX</option>
             </select>
           </div>
           
@@ -411,7 +411,7 @@ const ExchangeModal = ({ wallet, onClose, onSuccess, setActionLoading, actionLoa
           
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-sm text-gray-600">
-              Exchange Rate: 1 JD = 1 Stablecoin
+              Exchange Rate: 1 JD = 1 DinarX
             </p>
             {amount && (
               <p className="text-sm font-medium text-gray-900 mt-1">
