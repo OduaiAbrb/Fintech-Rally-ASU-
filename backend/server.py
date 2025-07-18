@@ -614,13 +614,20 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
                 detail="No banking consent found. Please link your bank accounts first."
             )
         
-        # Get accounts with balances using the new dependent flow
-        accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+        # Get accounts with balances using the new dependent flow - only real API calls
+        try:
+            accounts_response = await jof_service.get_accounts_with_balances(limit=20)
+        except Exception as api_error:
+            # Return detailed error information instead of mock data
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"JoPACC API unavailable: {str(api_error)}"
+            )
         
         # Convert JoPACC format to legacy format for frontend compatibility
         accounts = []
         
-        # Process accounts from either real API or fallback mock data
+        # Process accounts from real API response
         for account in accounts_response.get("accounts", []):
             account_data = {
                 "account_id": account["accountId"],
@@ -668,8 +675,11 @@ async def get_linked_accounts(current_user: dict = Depends(get_current_user)):
             "accounts": accounts,
             "total": len(accounts),
             "dependency_flow": "accounts_with_balances",
-            "api_call_sequence": "1. get_accounts_new (with x-customer-id), 2. get_account_balances (without x-customer-id) for each account"
+            "api_call_sequence": "1. get_accounts_new (with x-customer-id), 2. get_account_balances (without x-customer-id) for each account",
+            "data_source": "real_api_only"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
