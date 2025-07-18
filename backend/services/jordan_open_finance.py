@@ -408,7 +408,7 @@ class JordanOpenFinanceService:
             })
         return accounts
     
- main
+
 
     async def request_user_consent(self, user_id: str, permissions: List[str]) -> Dict[str, Any]:
         """Legacy method - creates account access consent"""
@@ -462,7 +462,7 @@ class JordanOpenFinanceService:
 
         }
 
-        }
+        
         
 
     
