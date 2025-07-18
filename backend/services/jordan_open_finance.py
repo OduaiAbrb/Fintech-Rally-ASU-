@@ -584,41 +584,7 @@ class JordanOpenFinanceService:
     
     # Extended Services - FX and Additional Services
     async def get_exchange_rates(self, base_currency: str = "JOD") -> Dict[str, Any]:
-        """Get exchange rates - Extended Service"""
-        if self.sandbox_mode:
-            return {
-                "Data": {
-                    "ExchangeRate": [
-                        {
-                            "UnitCurrency": "JOD",
-                            "ExchangeRate": "1.41",
-                            "RateType": "Actual",
-                            "ContractIdentification": "FX001",
-                            "QuotationDate": datetime.utcnow().isoformat() + "Z",
-                            "TargetCurrency": "USD"
-                        },
-                        {
-                            "UnitCurrency": "JOD",
-                            "ExchangeRate": "1.29",
-                            "RateType": "Actual",
-                            "ContractIdentification": "FX002",
-                            "QuotationDate": datetime.utcnow().isoformat() + "Z",
-                            "TargetCurrency": "EUR"
-                        },
-                        {
-                            "UnitCurrency": "JOD",
-                            "ExchangeRate": "1.13",
-                            "RateType": "Actual",
-                            "ContractIdentification": "FX003",
-                            "QuotationDate": datetime.utcnow().isoformat() + "Z",
-                            "TargetCurrency": "GBP"
-                        }
-                    ]
-                },
-                "Links": {
-                    "Self": "/open-banking/v1.0/fx/exchange-rates"
-                }
-            }
+        """Get exchange rates - Extended Service - only real API calls"""
         
         headers = await self.get_headers()
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -627,8 +593,13 @@ class JordanOpenFinanceService:
                 headers=headers,
                 params={"baseCurrency": base_currency}
             )
-            response.raise_for_status()
-            return response.json()
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_msg = f"JoPACC Exchange Rates API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def get_fx_rates(self) -> Dict[str, Any]:
         """Get FX rates using real JoPACC endpoint - only real API calls"""
