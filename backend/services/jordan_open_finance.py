@@ -133,9 +133,9 @@ class JordanOpenFinanceService:
         # First, get all accounts (this API includes x-customer-id)
         accounts_response = await self.get_accounts_new(skip=skip, limit=limit)
         
-        # Extract account IDs from the response
+        # Extract account IDs from the response - JoPACC API returns data in "data" field
         enriched_accounts = []
-        for account in accounts_response.get("accounts", []):
+        for account in accounts_response.get("data", []):
             account_id = account.get("accountId")
             if account_id:
                 # Get balance for this specific account (this API does NOT include x-customer-id)
@@ -145,7 +145,7 @@ class JordanOpenFinanceService:
                     account_with_balance = {
                         **account,
                         "detailed_balances": balance_response.get("balances", []),
-                        "balance_last_updated": balance_response.get("lastUpdated", account.get("lastUpdated"))
+                        "balance_last_updated": balance_response.get("lastUpdated", account.get("lastModificationDateTime"))
                     }
                     enriched_accounts.append(account_with_balance)
                 except Exception as e:
