@@ -461,6 +461,7 @@ class JordanOpenFinanceService:
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "1"),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", "1"),
             "x-auth-date": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "accountId": account_id,  # Add accountId header as required
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
