@@ -38,7 +38,7 @@ class JordanOpenFinanceService:
             "Authorization": os.getenv("JOPACC_AUTHORIZATION", "Bearer demo_token"),
             "x-financial-id": os.getenv("JOPACC_FINANCIAL_ID", "001"),
             "x-customer-ip-address": customer_ip,
-            "x-customer-user-agent": "StableCoin-Fintech-App/1.0",
+            "x-customer-user-agent": "Finjo-DinarX-App/1.0",
             "x-interactions-id": interaction_id,
             "x-idempotency-key": str(uuid.uuid4()),
             "x-jws-signature": os.getenv("JOPACC_JWS_SIGNATURE", ""),
