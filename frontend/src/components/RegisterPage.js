@@ -212,40 +212,6 @@ const RegisterPage = () => {
             </div>
           </div>
 
-          {/* IBAN Validation Section */}
-          <div className="pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">IBAN Validation</h3>
-              <button
-                type="button"
-                onClick={() => setShowIBANValidation(!showIBANValidation)}
-                className="text-sm text-indigo-600 hover:text-indigo-500"
-              >
-                {showIBANValidation ? 'Hide' : 'Optional - Validate IBAN'}
-              </button>
-            </div>
-            
-            {showIBANValidation && (
-              <div className="mb-4">
-                <IBANValidation onValidation={handleIBANValidation} />
-              </div>
-            )}
-            
-            {ibanValidationResult && (
-              <div className={`mb-4 p-3 rounded-md ${
-                ibanValidationResult.valid
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}>
-                <p className={`text-sm font-medium ${
-                  ibanValidationResult.valid ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {ibanValidationResult.valid ? '✅ IBAN Validated Successfully' : '❌ IBAN Validation Failed'}
-                </p>
-              </div>
-            )}
-          </div>
-
           {errors.submit && (
             <div className="bg-red-50 border border-red-200 rounded-md p-4">
               <p className="text-sm text-red-800">{errors.submit}</p>
