@@ -120,12 +120,12 @@ class HeyDinarAI:
         open_banking_data = context_data.get('open_banking_data', {})
         
         jd_balance = wallet_balance.get('jd_balance', 0)
-        stablecoin_balance = wallet_balance.get('stablecoin_balance', 0)
+        dinarx_balance = wallet_balance.get('dinarx_balance', 0)
         
         response = f"Here's your current balance overview:\n\n"
-        response += f"💰 **Your Stablecoin Wallet:**\n"
+        response += f"💰 **Your DinarX Wallet:**\n"
         response += f"• JD Balance: {jd_balance:.2f} JOD\n"
-        response += f"• Stablecoin Balance: {stablecoin_balance:.2f} SC\n\n"
+        response += f"• DinarX Balance: {dinarx_balance:.2f} DINARX\n\n"
         
         if open_banking_data and open_banking_data.get('has_linked_accounts'):
             total_bank_balance = open_banking_data.get('total_balance', 0)
@@ -137,8 +137,8 @@ class HeyDinarAI:
             
             response += f"\n💎 **Total Across All Accounts:** {total_bank_balance:.2f} JOD"
             
-            if jd_balance > 0 or stablecoin_balance > 0:
-                grand_total = total_bank_balance + jd_balance + stablecoin_balance
+            if jd_balance > 0 or dinarx_balance > 0:
+                grand_total = total_bank_balance + jd_balance + dinarx_balance
                 response += f"\n🌟 **Grand Total (Including Wallet):** {grand_total:.2f} JOD"
         else:
             response += "💡 Connect your bank accounts for a complete financial overview!"
@@ -318,10 +318,10 @@ class HeyDinarAI:
         
         # Balance analysis
         jd_balance = wallet_balance.get('jd_balance', 0)
-        stablecoin_balance = wallet_balance.get('stablecoin_balance', 0)
+        dinarx_balance = wallet_balance.get('dinarx_balance', 0)
         
-        if jd_balance > 0 and stablecoin_balance == 0:
-            advice += "💰 **Consider diversifying:** You have JD in your wallet. Consider converting some to stablecoin for international transactions.\n\n"
+        if jd_balance > 0 and dinarx_balance == 0:
+            advice += "💰 **Consider diversifying:** You have JD in your wallet. Consider converting some to DinarX for international transactions.\n\n"
         
         # Spending pattern advice
         if open_banking_data and open_banking_data.get('recent_transactions'):
@@ -337,7 +337,7 @@ class HeyDinarAI:
         advice += "• Review your transactions regularly\n"
         advice += "• Set up automatic savings transfers\n"
         advice += "• Keep 3-6 months of expenses as emergency fund\n"
-        advice += "• Use stablecoin for international transfers to save on fees"
+        advice += "• Use DinarX for international transfers to save on fees"
         
         return advice
     
