@@ -1179,15 +1179,15 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             "stablecoin_balance": wallet.get("stablecoin_balance", 0) if wallet else 0
         }
         
-        # Get linked accounts using real JoPACC API
+        # Get linked accounts using real JoPACC API with account-dependent flow
         linked_accounts = []
         total_bank_balance = 0
         
         consent = await consents_collection.find_one({"user_id": current_user["_id"]})
         if consent:
             try:
-                # Use real JoPACC endpoint with the new method
-                accounts_response = await jof_service.get_accounts_new(limit=20)
+                # Use the new account-dependent method that gets accounts and balances together
+                accounts_response = await jof_service.get_accounts_with_balances(limit=20)
                 
                 for account in accounts_response.get("accounts", []):
                     account_data = {
@@ -1201,7 +1201,9 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
                         "balance": float(account["balance"]["current"]),
                         "available_balance": float(account["balance"]["available"]),
                         "status": account["accountStatus"],
-                        "last_updated": account["lastUpdated"]
+                        "last_updated": account["lastUpdated"],
+                        "detailed_balances": account.get("detailed_balances", []),
+                        "balance_last_updated": account.get("balance_last_updated")
                     }
                     
                     linked_accounts.append(account_data)
@@ -1210,12 +1212,25 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             except Exception as e:
                 print(f"Error fetching accounts: {e}")
         
-        # Get FX rates using real JoPACC API
+        # Get FX rates using real JoPACC API (account-dependent if we have linked accounts)
         fx_rates = {}
         try:
-            fx_response = await jof_service.get_fx_rates()
-            for rate_info in fx_response.get("rates", []):
-                fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+            if linked_accounts:
+                # Use account-dependent FX rates for the first account
+                first_account_id = linked_accounts[0]["account_id"]
+                fx_response = await jof_service.get_fx_rates_for_account(first_account_id)
+                for rate_info in fx_response.get("rates_for_account", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
+                # Add account context to FX rates
+                fx_rates["account_context"] = {
+                    "account_id": first_account_id,
+                    "account_currency": fx_response.get("account_currency", "JOD")
+                }
+            else:
+                # Use general FX rates
+                fx_response = await jof_service.get_fx_rates()
+                for rate_info in fx_response.get("rates", []):
+                    fx_rates[rate_info["targetCurrency"]] = rate_info["rate"]
         except Exception as e:
             print(f"Error fetching FX rates: {e}")
         
