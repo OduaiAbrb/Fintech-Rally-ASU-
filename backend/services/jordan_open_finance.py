@@ -691,20 +691,7 @@ class JordanOpenFinanceService:
     
     async def create_transfer(self, from_account_id: str, to_account_id: str, amount: float, 
                             currency: str = "JOD", description: str = None) -> Dict[str, Any]:
-        """Create transfer between accounts or to wallet"""
-        if self.sandbox_mode:
-            transfer_id = f"txn_{str(uuid.uuid4())[:8]}"
-            return {
-                "transferId": transfer_id,
-                "status": "completed",
-                "fromAccount": from_account_id,
-                "toAccount": to_account_id,
-                "amount": amount,
-                "currency": currency,
-                "description": description or f"Transfer {amount} {currency}",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-                "estimatedCompletion": datetime.utcnow().isoformat() + "Z"
-            }
+        """Create transfer between accounts or to wallet - only real API calls"""
         
         headers = await self.get_headers()
         transfer_data = {
@@ -722,8 +709,13 @@ class JordanOpenFinanceService:
                 headers=headers,
                 json=transfer_data
             )
-            response.raise_for_status()
-            return response.json()
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_msg = f"JoPACC Transfer API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
         
     # Legacy methods for backward compatibility
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
