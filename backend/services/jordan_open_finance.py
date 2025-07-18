@@ -25,6 +25,7 @@ class JordanOpenFinanceService:
         self.x_financial_id = os.getenv("JORDAN_OPEN_FINANCE_FINANCIAL_ID", "001")
         self.timeout = 30
         
+    
         # Always use real API endpoints - no sandbox mode
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
         self.sandbox_mode = False  # Permanently disabled - only real API calls
@@ -750,7 +751,7 @@ class JordanOpenFinanceService:
                 "user_id": user_id,
                 "permissions": permissions,
                 "status": "granted",
-                "consent_url": f"https://sandbox.jopacc.com/consent/{consent_response['Data']['ConsentId']}",
+                "consent_url": f"https://sandbox.jopacc.com/consent/{consent_response["Data"]["ConsentId"]}",
                 "expires_at": consent_response["Data"]["ExpirationDateTime"],
                 "created_at": consent_response["Data"]["CreationDateTime"]
             }
@@ -791,7 +792,7 @@ class JordanOpenFinanceService:
             "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
         }
         
-    # Removed duplicate OAuth2 methods - using direct token authentication instead
+
     
     async def get_consent_status(self, consent_id: str) -> Dict[str, Any]:
         """Get consent status"""
@@ -806,8 +807,9 @@ class JordanOpenFinanceService:
         headers = await self.get_headers()
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.base_url}/consent/v1/status/{consent_id}",
+                f"{self.api_base}/consent/v1/status/{consent_id}",
                 headers=headers
             )
             response.raise_for_status()
             return response.json()
+
