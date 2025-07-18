@@ -2041,7 +2041,7 @@ async def apply_for_micro_loan(
         }
         
         # Store in database (assuming we have a micro_loans collection)
-        await database.micro_loans.insert_one(loan_application_doc)
+        await db.micro_loans.insert_one(loan_application_doc)
         
         return {
             "application_id": loan_application_doc["_id"],
