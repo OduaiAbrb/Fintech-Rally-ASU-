@@ -97,7 +97,7 @@ class Transaction(BaseModel):
     user_id: str
     transaction_type: str  # 'deposit', 'withdrawal', 'transfer', 'exchange'
     amount: float
-    currency: str  # 'JD' or 'STABLECOIN'
+    currency: str  # 'JD' or 'DINARX'
     status: str  # 'pending', 'completed', 'failed'
     description: Optional[str] = None
     created_at: datetime
