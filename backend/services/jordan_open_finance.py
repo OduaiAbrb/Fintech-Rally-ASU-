@@ -29,28 +29,8 @@ class JordanOpenFinanceService:
         self.api_base = "https://jpcjofsdev.apigw-az-eu.webmethods.io"
         self.sandbox_mode = False  # Always use real API calls
         
-    async def get_access_token(self) -> str:
-        """Get OAuth2 access token for API authentication following JoPACC standards"""
-        if self.sandbox_mode:
-            return "sandbox_access_token_" + str(uuid.uuid4())[:8]
-            
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            # JoPACC OAuth2 Token Endpoint
-            response = await client.post(
-                f"{self.api_base}/oauth2/token",
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "scope": "accounts payments funds-confirmation directory"
-                },
-                headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Accept": "application/json"
-                }
-            )
-            response.raise_for_status()
-            return response.json()["access_token"]
+    # Removed OAuth2 method - JoPACC uses direct token authentication
+    # Direct token authentication is handled in get_headers() method
     
     async def get_headers(self, customer_ip: str = "127.0.0.1") -> Dict[str, str]:
         """Get standard headers for real JoPACC API requests - Direct token authentication"""
