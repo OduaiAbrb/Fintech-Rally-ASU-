@@ -409,7 +409,7 @@ async def exchange_currency(
         "message": "Exchange completed successfully",
         "transaction_id": transaction_id,
         "new_jd_balance": new_jd_balance,
-        "new_dinarx_balance": new_stablecoin_balance
+        "new_dinarx_balance": new_dinarx_balance
     }
 
 @app.get("/api/transactions")
