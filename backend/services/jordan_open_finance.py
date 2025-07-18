@@ -286,80 +286,7 @@ class JordanOpenFinanceService:
                 raise Exception(error_msg)
     
     async def get_accounts(self, consent_id: str) -> List[Dict[str, Any]]:
-        """Get user accounts following JoPACC AIS v1.0 standards"""
-        if self.sandbox_mode:
-            return {
-                "Data": {
-                    "Account": [
-                        {
-                            "AccountId": "acc_001_jordan_bank",
-                            "Status": "Enabled",
-                            "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                            "Currency": "JOD",
-                            "AccountType": "Personal",
-                            "AccountSubType": "CurrentAccount",
-                            "Nickname": "Jordan Bank Current",
-                            "OpeningDate": "2023-01-01T00:00:00Z",
-                            "Account": [
-                                {
-                                    "SchemeName": "SortCodeAccountNumber",
-                                    "Identification": "1234567890",
-                                    "Name": "Jordan Bank - Current Account"
-                                }
-                            ],
-                            "Servicer": {
-                                "SchemeName": "BICFI",
-                                "Identification": "JBANKJOA"
-                            }
-                        },
-                        {
-                            "AccountId": "acc_002_arab_bank",
-                            "Status": "Enabled",
-                            "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                            "Currency": "JOD",
-                            "AccountType": "Personal",
-                            "AccountSubType": "Savings",
-                            "Nickname": "Arab Bank Savings",
-                            "OpeningDate": "2023-03-15T00:00:00Z",
-                            "Account": [
-                                {
-                                    "SchemeName": "SortCodeAccountNumber",
-                                    "Identification": "9876543210",
-                                    "Name": "Arab Bank - Savings Account"
-                                }
-                            ],
-                            "Servicer": {
-                                "SchemeName": "BICFI",
-                                "Identification": "ARABJOAM"
-                            }
-                        },
-                        {
-                            "AccountId": "acc_003_housing_bank",
-                            "Status": "Enabled",
-                            "StatusUpdateDateTime": datetime.utcnow().isoformat() + "Z",
-                            "Currency": "JOD",
-                            "AccountType": "Business",
-                            "AccountSubType": "CurrentAccount",
-                            "Nickname": "Housing Bank Business",
-                            "OpeningDate": "2023-06-01T00:00:00Z",
-                            "Account": [
-                                {
-                                    "SchemeName": "SortCodeAccountNumber",
-                                    "Identification": "5555666677",
-                                    "Name": "Housing Bank - Business Account"
-                                }
-                            ],
-                            "Servicer": {
-                                "SchemeName": "BICFI",
-                                "Identification": "HBANKJOA"
-                            }
-                        }
-                    ]
-                },
-                "Links": {
-                    "Self": "/open-banking/v1.0/aisp/accounts"
-                }
-            }
+        """Get user accounts following JoPACC AIS v1.0 standards - only real API calls"""
         
         headers = await self.get_headers()
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -367,8 +294,13 @@ class JordanOpenFinanceService:
                 f"{self.api_base}/open-banking/v1.0/aisp/accounts",
                 headers=headers
             )
-            response.raise_for_status()
-            return response.json()
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_msg = f"JoPACC Accounts API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                raise Exception(error_msg)
     
     async def get_account_transactions(self, account_id: str, from_booking_date: Optional[datetime] = None,
                                      to_booking_date: Optional[datetime] = None) -> Dict[str, Any]:
