@@ -217,6 +217,35 @@ class UserProfileResponse(BaseModel):
     fx_rates: dict
     recent_transfers: List[dict]
 
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Test database connection
+        collections = await database.list_collection_names()
+        
+        return {
+            "status": "healthy",
+            "service": "Finjo DinarX Platform",
+            "database": {
+                "connected": True,
+                "name": db_name,
+                "collections": len(collections)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "Finjo DinarX Platform",
+            "database": {
+                "connected": False,
+                "error": str(e)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 # Utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
