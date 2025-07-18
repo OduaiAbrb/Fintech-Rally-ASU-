@@ -65,7 +65,7 @@ const WalletPage = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Your Wallet</h1>
         <p className="mt-2 text-gray-600">
-          Manage your JD and Stablecoin balances
+          Manage your JD and DinarX balances
         </p>
       </div>
 
@@ -84,7 +84,7 @@ const WalletPage = () => {
             </div>
           </div>
           <div className="exchange-rate">
-            <p className="text-sm">1 JD = 1 Stablecoin</p>
+            <p className="text-sm">1 JD = 1 DinarX</p>
           </div>
           <div className="quick-actions">
             <button
@@ -105,9 +105,9 @@ const WalletPage = () => {
         <div className="balance-card-secondary">
           <div className="flex items-center justify-between">
             <div>
-              <p className="balance-label">Stablecoin Balance</p>
+              <p className="balance-label">DinarX Balance</p>
               <p className="balance-display">
-                {formatCurrency(wallet?.stablecoin_balance || 0, 'STABLECOIN')}
+                {formatCurrency(wallet?.dinarx_balance || 0, 'DINARX')}
               </p>
             </div>
             <div className="text-white text-3xl opacity-80">
