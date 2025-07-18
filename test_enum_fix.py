@@ -9,7 +9,7 @@ import json
 import os
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv("REACT_APP_BACKEND_URL", "https://fb2b8618-5ed0-42da-9035-50aa156b0e1e.preview.emergentagent.com")
+BACKEND_URL = os.getenv("REACT_APP_BACKEND_URL", "https://0aa3f469-239e-4a70-bf25-a2009805653e.preview.emergentagent.com")
 API_BASE = f"{BACKEND_URL}/api"
 
 async def test_enhanced_login():

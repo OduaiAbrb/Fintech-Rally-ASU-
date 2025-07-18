@@ -202,13 +202,31 @@ const UserProfilePage = () => {
       {Object.keys(profileData?.fx_rates || {}).length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Exchange Rates (JOD)</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(profileData.fx_rates).map(([currency, rate]) => (
-              <div key={currency} className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700">{currency}</p>
-                <p className="text-lg font-bold text-gray-900">{rate}</p>
+          
+          {/* Account Context for FX Rates */}
+          {profileData?.fx_rates?.account_context && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2 text-sm text-blue-800">
+                <span className="font-medium">🏦 Account-Dependent FX Data:</span>
+                <span>Account ID: {profileData.fx_rates.account_context.account_id}</span>
+                <span>•</span>
+                <span>Base Currency: {profileData.fx_rates.account_context.account_currency}</span>
               </div>
-            ))}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(profileData.fx_rates).map(([currency, rate]) => {
+              // Skip the account_context entry
+              if (currency === 'account_context') return null;
+              
+              return (
+                <div key={currency} className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700">{currency}</p>
+                  <p className="text-lg font-bold text-gray-900">{rate}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -97,6 +97,28 @@ const OpenBankingPage = () => {
         <p className="mt-2 text-gray-600">
           Connect and manage all your bank accounts in one place
         </p>
+        
+        {/* API Call Sequence Information */}
+        {dashboardData?.has_linked_accounts && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-blue-600 font-semibold">🔗 Account-Dependent API Flow:</span>
+            </div>
+            <div className="text-sm text-blue-800">
+              <div className="flex items-center space-x-1">
+                <span>1️⃣</span>
+                <span className="font-medium">Accounts API</span>
+                <span className="text-blue-600">(with x-customer-id)</span>
+                <span>→</span>
+                <span className="font-medium">Balance API</span>
+                <span className="text-blue-600">(without x-customer-id)</span>
+                <span>→</span>
+                <span className="font-medium">FX API</span>
+                <span className="text-blue-600">(account-dependent)</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {!dashboardData?.has_linked_accounts ? (
@@ -166,6 +188,17 @@ const OpenBankingPage = () => {
                       {formatCurrency(account.available_balance, 'JD')}
                     </span>
                   </div>
+                  {account.detailed_balances && account.detailed_balances.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 mb-2">✅ Account-Dependent Balance Data:</div>
+                      {account.detailed_balances.map((balance, index) => (
+                        <div key={index} className="flex justify-between text-xs text-gray-600">
+                          <span>{balance.type}:</span>
+                          <span>{formatCurrency(balance.amount, balance.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-4 flex space-x-2">
