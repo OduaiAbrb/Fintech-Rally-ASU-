@@ -312,7 +312,7 @@ async def get_wallet_balance(current_user: dict = Depends(get_current_user)):
         "id": wallet["_id"],
         "user_id": wallet["user_id"],
         "jd_balance": wallet["jd_balance"],
-        "dinarx_balance": wallet["dinarx_balance"],
+        "dinarx_balance": wallet.get("dinarx_balance", wallet.get("stablecoin_balance", 0)),
         "created_at": wallet["created_at"],
         "updated_at": wallet["updated_at"]
     }
