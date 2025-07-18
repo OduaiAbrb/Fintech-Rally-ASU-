@@ -43,9 +43,16 @@ ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
 # MongoDB configuration
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/stablecoin_db")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongodb:27017/finjo_db")
 client = AsyncIOMotorClient(MONGO_URL)
-database = client.get_database("stablecoin_db")
+
+# Extract database name from URL or use default
+if "finjo_db" in MONGO_URL:
+    db_name = "finjo_db"
+else:
+    db_name = "stablecoin_db"  # Fallback for local development
+
+database = client.get_database(db_name)
 db = database  # Alias for database
 
 # Database collections
