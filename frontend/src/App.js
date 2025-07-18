@@ -14,6 +14,7 @@ import TransferPage from './components/TransferPage';
 import SecurityDashboard from './components/SecurityDashboard';
 import OffersPage from './components/OffersPage';
 import MicroLoansPage from './components/MicroLoansPage';
+import IBANValidation from './components/IBANValidation';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 
