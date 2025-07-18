@@ -880,34 +880,7 @@ class JordanOpenFinanceService:
             "conversion_date": quote.get("timestamp", datetime.utcnow().isoformat() + "Z")
         }
         
-    async def get_access_token(self) -> str:
-        """Get OAuth2 access token for API authentication"""
-        if self.sandbox_mode:
-            return "sandbox_access_token_" + str(uuid.uuid4())[:8]
-            
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.base_url}/oauth2/token",
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "scope": "ais pis fps fx"
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            response.raise_for_status()
-            return response.json()["access_token"]
-    
-    async def get_headers(self) -> Dict[str, str]:
-        """Get standard headers for API requests"""
-        access_token = await self.get_access_token()
-        return {
-            "Authorization": f"Bearer {access_token}",
-            "X-API-Key": self.api_key or "sandbox_api_key",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
+    # Removed duplicate OAuth2 methods - using direct token authentication instead
     
     # AIS (Account Information Services)
     async def get_user_accounts(self, user_consent_id: str) -> List[Dict[str, Any]]:
